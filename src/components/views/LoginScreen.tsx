@@ -23,16 +23,16 @@ export default function LoginScreen({ onSignInWithGoogle, loading }: LoginScreen
         {/* Logo */}
         <div className="mb-2">
           <h1 className="text-5xl font-bold tracking-tight">
-            <span className="text-white">my</span>
-            <span style={{ color: 'var(--accent-peach)' }}>pod</span>
+            <span className="text-white">puck</span>
+            <span style={{ color: 'var(--accent-peach)' }}>puck</span>
           </h1>
         </div>
 
         <p className="text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-          Your News. Your Voice. Your Commute.
+          Your News. Your Voice. Your Morning.
         </p>
         <p className="text-xs mb-10" style={{ color: 'var(--text-muted)' }}>
-          A voice-first, AI-generated personalized podcast.
+          AI-generated personalized audio briefings.
         </p>
 
         {/* Sign in card */}
@@ -77,7 +77,7 @@ export default function LoginScreen({ onSignInWithGoogle, loading }: LoginScreen
         </div>
 
         <p className="text-[10px] mt-6" style={{ color: 'var(--text-muted)' }}>
-          By signing in, you agree to let MyPod generate personalized content for you.
+          By signing in, you agree to let PuckPuck generate personalized content for you.
         </p>
       </div>
     </div>

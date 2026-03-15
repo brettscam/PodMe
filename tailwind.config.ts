@@ -8,30 +8,41 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"DM Sans"', 'sans-serif'],
+        sans: ['"Instrument Sans"', 'sans-serif'],
       },
       colors: {
         bg: {
-          primary: '#0d0d1a',
-          card: 'rgba(255,255,255,0.04)',
-          'card-hover': 'rgba(255,255,255,0.08)',
+          primary: '#0B0F1A',
+          surface: '#0F1320',
+          card: '#1E2433',
+          'card-hover': '#252B3B',
         },
         border: {
-          subtle: 'rgba(255,255,255,0.08)',
-          active: 'rgba(74,144,217,0.4)',
+          subtle: 'rgba(148,163,184,0.12)',
+          hover: 'rgba(255,107,53,0.3)',
+          active: 'rgba(37,99,235,0.4)',
         },
         text: {
-          primary: '#ffffff',
-          secondary: '#aaaaaa',
-          muted: '#666666',
+          primary: '#FAF8F5',
+          secondary: '#94A3B8',
+          muted: '#64748B',
         },
         accent: {
-          peach: '#F4A261',
-          blue: '#4A90D9',
-          'blue-dark': '#1B3A5C',
+          pulse: '#FF6B35',
+          'pulse-40': '#FF8F5E',
+          'pulse-70': '#CC4E1F',
+          signal: '#2563EB',
+          'signal-40': '#4F8FFF',
+          'signal-dark': '#1A4BC2',
+          // Legacy aliases
+          peach: '#FF6B35',
+          blue: '#2563EB',
+          'blue-dark': '#1A4BC2',
         },
-        danger: '#E74C3C',
-        success: '#2D8A6E',
+        danger: '#EF4444',
+        success: '#10B981',
+        warning: '#F59E0B',
+        mist: '#94A3B8',
       },
       maxWidth: {
         app: '520px',

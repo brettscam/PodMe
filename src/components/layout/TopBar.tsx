@@ -37,8 +37,8 @@ export default function TopBar({ currentView, onBack, userName, onSignOut }: Top
           </button>
         )}
         <div className="text-lg font-bold tracking-tight">
-          <span className="text-white">my</span>
-          <span style={{ color: 'var(--accent-peach)' }}>pod</span>
+          <span className="text-white">puck</span>
+          <span style={{ color: 'var(--accent-peach)' }}>puck</span>
         </div>
       </div>
 

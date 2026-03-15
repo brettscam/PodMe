@@ -1,23 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400;1,9..40,500;1,9..40,600;1,9..40,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-primary: #0d0d1a;
-  --bg-card: rgba(255,255,255,0.04);
-  --bg-card-hover: rgba(255,255,255,0.08);
-  --border-subtle: rgba(255,255,255,0.08);
-  --border-active: rgba(74,144,217,0.4);
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --text-muted: #666666;
-  --accent-peach: #F4A261;
-  --accent-blue: #4A90D9;
-  --accent-blue-dark: #1B3A5C;
-  --danger: #E74C3C;
-  --success: #2D8A6E;
+  /* PuckPuck Design System */
+  --bg-primary: #0B0F1A;
+  --bg-surface: #0F1320;
+  --bg-card: #1E2433;
+  --bg-card-hover: #252B3B;
+  --border-subtle: rgba(148, 163, 184, 0.12);
+  --border-hover: rgba(255, 107, 53, 0.3);
+  --border-active: rgba(37, 99, 235, 0.4);
+  --text-primary: #FAF8F5;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --accent-pulse: #FF6B35;
+  --accent-signal: #2563EB;
+  --accent-signal-dark: #1A4BC2;
+  --danger: #EF4444;
+  --success: #10B981;
+  --warning: #F59E0B;
+
+  /* Legacy aliases for components not yet migrated */
+  --accent-peach: var(--accent-pulse);
+  --accent-blue: var(--accent-signal);
+  --accent-blue-dark: var(--accent-signal-dark);
 }
 
 * {
@@ -31,8 +40,8 @@ html, body, #root {
   width: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -45,10 +54,10 @@ html, body, #root {
 
 /* Caps label style */
 .caps-label {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Instrument Sans', sans-serif;
   font-weight: 600;
   font-size: 11px;
-  letter-spacing: 1.5px;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
 }
 
@@ -60,11 +69,88 @@ html, body, #root {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
+  background: rgba(148,163,184,0.15);
   border-radius: 2px;
 }
 
 /* Transition utility */
 .transition-all-200 {
   transition: all 0.2s ease;
+}
+
+/* ─── PuckPuck Signature Animations ─── */
+
+/* Audio Pulse — loading/generating */
+@keyframes pulseWave {
+  0%   { transform: scaleY(0.3); opacity: 0.4; }
+  50%  { transform: scaleY(1.0); opacity: 1.0; }
+  100% { transform: scaleY(0.3); opacity: 0.4; }
+}
+
+.wave-bar {
+  width: 4px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--accent-pulse);
+  animation: pulseWave 1.2s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0s; }
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.2s; }
+.wave-bar:nth-child(4) { animation-delay: 0.3s; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.wave-bar:nth-child(6) { animation-delay: 0.5s; }
+.wave-bar:nth-child(7) { animation-delay: 0.6s; }
+
+/* Dot Bounce — voice processing */
+@keyframes dotBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+.bounce-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  animation: dotBounce 0.8s ease-in-out infinite;
+}
+
+.bounce-dot:nth-child(1) { background: var(--accent-pulse); animation-delay: 0s; }
+.bounce-dot:nth-child(2) { background: var(--accent-signal); animation-delay: 0.15s; }
+.bounce-dot:nth-child(3) { background: var(--accent-pulse); animation-delay: 0.3s; }
+
+/* Segment Reveal — content loading */
+@keyframes fadeSlideUp {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.segment-reveal {
+  animation: fadeSlideUp 0.5s ease-out both;
+}
+
+/* Spin Pulse — fetching/syncing */
+@keyframes spinPulse {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spin-ring {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent-pulse);
+  border-radius: 50%;
+  animation: spinPulse 1s linear infinite;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .wave-bar,
+  .bounce-dot,
+  .segment-reveal,
+  .spin-ring {
+    animation: none;
+  }
 }

@@ -31,8 +31,8 @@ export default function App() {
         <GlowOrbs />
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            <span className="text-white">my</span>
-            <span style={{ color: 'var(--accent-peach)' }}>pod</span>
+            <span className="text-white">puck</span>
+            <span style={{ color: 'var(--accent-peach)' }}>puck</span>
           </h1>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</p>
         </div>

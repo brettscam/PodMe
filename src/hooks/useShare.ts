@@ -14,7 +14,7 @@ export function useShare() {
 
   const getShareUrl = useCallback((token?: string) => {
     const t = token || shareToken
-    return t ? `mypod.fm/s/${t}` : ''
+    return t ? `puckpuck.ai/s/${t}` : ''
   }, [shareToken])
 
   const copyShareLink = useCallback(async () => {
@@ -33,7 +33,7 @@ export function useShare() {
     const url = `https://${getShareUrl()}`
     if (navigator.share) {
       try {
-        await navigator.share({ title, url, text: `Listen to my MyPod episode: ${title}` })
+        await navigator.share({ title, url, text: `Listen to my PuckPuck episode: ${title}` })
       } catch {
         // User cancelled or not supported
       }

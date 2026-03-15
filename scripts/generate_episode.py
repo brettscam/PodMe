@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MyPod Episode Generator — Tuesday, March 14, 2026
+PuckPuck Episode Generator — Tuesday, March 14, 2026
 Generates a full podcast episode with ElevenLabs TTS and stitches with ffmpeg.
 
 Usage:
@@ -31,7 +31,7 @@ ELEVENLABS_API_KEY = os.environ.get(
     "sk_85fb0f5a3e4c236af044a42eb34bee6c99b2c68160889be3"
 )
 
-# Map MyPod voice IDs to ElevenLabs voice IDs
+# Map PuckPuck voice IDs to ElevenLabs voice IDs
 # Using ElevenLabs' pre-made voices that match our personas
 VOICE_MAP = {
     "anchor":        "pNInz6obpgDQGcFmaJgB",   # Adam — warm, authoritative (NPR-adjacent)
@@ -59,7 +59,7 @@ SEGMENTS = [
         "id": "00_cold_open",
         "voice": "anchor",
         "title": "Cold Open",
-        "script": """Good morning. It's Tuesday, March fourteenth, twenty twenty-six. I'm your anchor, and this is MyPod.
+        "script": """Good morning. It's Tuesday, March fourteenth, twenty twenty-six. I'm your anchor, and this is PuckPuck.
 
 Big earnings week ahead. NVIDIA reports tomorrow after the bell, and analysts are calling it the most important tech print of the quarter. Apple just wrapped a surprise spring event with some major hardware announcements. On the world stage, ceasefire talks between Ukraine and Russia are back on in Geneva with a new framework on the table. And closer to home, Marin County supervisors vote tonight on a housing element that's been months in the making.
 
@@ -147,7 +147,7 @@ Also, the new Sigma fifty millimeter f-one-point-two Art lens for L-mount is get
         "id": "08_wrap",
         "voice": "anchor",
         "title": "Wrap & Look-Ahead",
-        "script": """That's your Tuesday briefing. Watch the Marin housing vote at six PM tonight. NVIDIA reports tomorrow after the bell. This weekend, hit the new trail on Mount Tam and the year-round farmer's market Sunday. I'm your anchor. Have a great Tuesday. This has been MyPod."""
+        "script": """That's your Tuesday briefing. Watch the Marin housing vote at six PM tonight. NVIDIA reports tomorrow after the bell. This weekend, hit the new trail on Mount Tam and the year-round farmer's market Sunday. I'm your anchor. Have a great Tuesday. This has been PuckPuck."""
     },
 ]
 
@@ -235,7 +235,7 @@ def stitch_segments(segment_files: list[Path], output_path: Path):
 
 def main():
     print("=" * 60)
-    print("MyPod Episode Generator")
+    print("PuckPuck Episode Generator")
     print("Tuesday, March 14, 2026 — Morning Brief")
     print("=" * 60)
 
