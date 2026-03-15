@@ -2,6 +2,12 @@
   "functions": {
     "api/generate-segment.ts": {
       "maxDuration": 60
+    },
+    "api/voice-sample.ts": {
+      "maxDuration": 30
+    },
+    "api/list-voices.ts": {
+      "maxDuration": 15
     }
   },
   "rewrites": [
