@@ -141,21 +141,13 @@ Also, the new Sigma fifty millimeter f-one-point-two Art lens for L-mount is get
         "id": "07_entertainment",
         "voice": "anchor",
         "title": "Entertainment",
-        "script": """In entertainment, Oscar nomination voting closes today, with the ceremony set for March thirtieth.
-
-The frontrunners for Best Picture are shaping up to be "The Return," a historical drama about Japanese internment camps that has swept the critics' awards circuit, and "Meridian," a sci-fi thriller from Denis Villeneuve that's become a surprise box-office hit. On the performance side, Saoirse Ronan is the odds-on favorite for Best Actress for her role in "Salt Road," while the Best Actor race is a genuine toss-up between Colman Domingo and Paul Mescal.
-
-And streaming news — The Bear Season Four drops Friday on Hulu. Early reviews from critics who got screeners are calling it the best season yet. The show moves the action to London this time, with Carmy opening a pop-up restaurant during a culinary residency. If you're planning a weekend binge, clear your Friday evening."""
+        "script": """In entertainment, Oscar voting closes today. Frontrunners for Best Picture: "The Return" and Denis Villeneuve's "Meridian." And The Bear Season Four drops Friday on Hulu — early reviews say it's the best season yet. Clear your Friday evening."""
     },
     {
         "id": "08_wrap",
         "voice": "anchor",
         "title": "Wrap & Look-Ahead",
-        "script": """That's your Tuesday briefing. Here's what to keep on your radar.
-
-Today — watch the Marin County housing vote at six PM. The livestream will be on the county website. Tomorrow — NVIDIA reports after the bell. That's the biggest earnings print of the week. Thursday — Adobe reports, and Fed Chair Powell speaks at two PM Eastern. This weekend — hit the new Azalea Hill Loop on Mount Tam, check out the year-round farmer's market in San Rafael on Sunday, and maybe clear your schedule Friday night for The Bear Season Four.
-
-I'm your anchor. Have a great Tuesday. We'll be back tomorrow morning with the NVIDIA breakdown and everything else you need to know. This has been MyPod."""
+        "script": """That's your Tuesday briefing. Watch the Marin housing vote at six PM tonight. NVIDIA reports tomorrow after the bell. This weekend, hit the new trail on Mount Tam and the year-round farmer's market Sunday. I'm your anchor. Have a great Tuesday. This has been MyPod."""
     },
 ]
 
@@ -270,6 +262,13 @@ def main():
 
     for i, segment in enumerate(SEGMENTS):
         output_path = TEMP_DIR / f"{segment['id']}.mp3"
+
+        # Skip segments that already exist (saves API credits)
+        if output_path.exists() and output_path.stat().st_size > 1000:
+            print(f"  Skipping (already exists): {segment['title']} ({output_path.stat().st_size / 1024:.1f} KB)")
+            segment_files.append(output_path)
+            continue
+
         success = generate_audio(client, segment, output_path)
 
         if success:
