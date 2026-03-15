@@ -8,7 +8,15 @@ export type VoiceTier = 'free' | 'pro'
 export type SourceTier = 1 | 2 | 3 | 4
 export type SourcePreference = 'preferred' | 'muted'
 
-export type ViewName = 'home' | 'topics' | 'throttles' | 'voices' | 'episode'
+export type ViewName = 'home' | 'topics' | 'throttles' | 'voices' | 'episode' | 'profile'
+
+export interface LifeContext {
+  id: string
+  type: 'parenting' | 'fitness' | 'learning' | 'home' | 'career'
+  label: string
+  enabled: boolean
+  config: Record<string, string>
+}
 
 export interface TopicDefinition {
   id: string

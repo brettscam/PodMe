@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { ViewName } from './lib/types'
+import { useState, useCallback } from 'react'
+import type { ViewName, LifeContext } from './lib/types'
 import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useTopics } from './hooks/useTopics'
@@ -16,10 +16,20 @@ import Throttles from './components/views/Throttles'
 import Voices from './components/views/Voices'
 import EpisodePreview from './components/views/EpisodePreview'
 import EmailPreview from './components/views/EmailPreview'
+import Profile from './components/views/Profile'
+
+const DEFAULT_LIFE_CONTEXTS: LifeContext[] = [
+  { id: 'parenting', type: 'parenting', label: 'Parenting', enabled: false, config: {} },
+  { id: 'fitness', type: 'fitness', label: 'Fitness', enabled: false, config: {} },
+  { id: 'learning', type: 'learning', label: 'Learning', enabled: false, config: {} },
+  { id: 'home', type: 'home', label: 'Home', enabled: false, config: {} },
+  { id: 'career', type: 'career', label: 'Career', enabled: false, config: {} },
+]
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewName>('home')
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [lifeContexts, setLifeContexts] = useState<LifeContext[]>(DEFAULT_LIFE_CONTEXTS)
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth()
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
@@ -27,6 +37,14 @@ export default function App() {
   const { currentEpisode, pastEpisodes } = useEpisodes()
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode } = useGenerate()
+
+  const toggleLifeContext = useCallback((id: string, enabled: boolean) => {
+    setLifeContexts(prev => prev.map(c => c.type === id ? { ...c, enabled } : c))
+  }, [])
+
+  const updateLifeContextConfig = useCallback((id: string, config: Record<string, string>) => {
+    setLifeContexts(prev => prev.map(c => c.type === id ? { ...c, config } : c))
+  }, [])
 
   // Show loading with Audio Pulse animation
   if (authLoading) {
@@ -117,6 +135,24 @@ export default function App() {
             onShare={nativeShare}
             generationProgress={genProgress}
             onGenerate={() => generateEpisode(currentEpisode.segments)}
+          />
+        )
+      case 'profile':
+        return (
+          <Profile
+            profile={profile}
+            userName={user?.user_metadata?.full_name || user?.email || undefined}
+            lifeContexts={lifeContexts}
+            onSetTone={setTone}
+            onSetLength={setLength}
+            onSetCadence={setCadence}
+            onDeliveryTimeChange={setDeliveryTime}
+            onToggleEmailDigest={setEmailDigest}
+            onPreviewEmail={() => setShowEmailPreview(true)}
+            onToggleLifeContext={toggleLifeContext}
+            onUpdateLifeContextConfig={updateLifeContextConfig}
+            onNavigate={setCurrentView}
+            onSignOut={signOut}
           />
         )
     }

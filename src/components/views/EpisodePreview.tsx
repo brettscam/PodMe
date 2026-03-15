@@ -266,27 +266,66 @@ export default function EpisodePreview({
           </span>
         </div>
 
-        {/* Clickable progress bar */}
+        {/* Scrubble progress bar with touch support */}
         <div
-          className="w-full h-2 rounded-full mb-4 cursor-pointer group"
-          style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-          onClick={handleProgressClick}
+          className="w-full relative mb-4 cursor-pointer group"
+          style={{ height: 28, display: 'flex', alignItems: 'center' }}
+          onMouseDown={e => {
+            handleProgressClick(e)
+            const handleMove = (ev: MouseEvent) => {
+              const audio = audioRef.current
+              if (!audio || !audio.duration) return
+              const rect = e.currentTarget.getBoundingClientRect()
+              const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+              audio.currentTime = pct * audio.duration
+            }
+            const handleUp = () => {
+              window.removeEventListener('mousemove', handleMove)
+              window.removeEventListener('mouseup', handleUp)
+            }
+            window.addEventListener('mousemove', handleMove)
+            window.addEventListener('mouseup', handleUp)
+          }}
+          onTouchStart={e => {
+            if (e.touches.length === 0) return
+            const audio = audioRef.current
+            if (!audio || !audio.duration) return
+            const rect = e.currentTarget.getBoundingClientRect()
+            const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width))
+            audio.currentTime = pct * audio.duration
+            const handleMove = (ev: TouchEvent) => {
+              if (ev.touches.length === 0) return
+              const p = Math.max(0, Math.min(1, (ev.touches[0].clientX - rect.left) / rect.width))
+              audio.currentTime = p * audio.duration
+            }
+            const handleEnd = () => {
+              window.removeEventListener('touchmove', handleMove)
+              window.removeEventListener('touchend', handleEnd)
+            }
+            window.addEventListener('touchmove', handleMove, { passive: true })
+            window.addEventListener('touchend', handleEnd)
+          }}
         >
           <div
-            className="h-full rounded-full relative"
-            style={{
-              width: `${progress}%`,
-              background: 'linear-gradient(90deg, var(--accent-peach), var(--accent-blue))',
-              transition: 'width 0.1s linear',
-            }}
+            className="w-full rounded-full"
+            style={{ height: 5, backgroundColor: 'rgba(255,255,255,0.08)' }}
           >
             <div
-              className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-full rounded-full relative"
               style={{
-                backgroundColor: 'white',
-                boxShadow: '0 0 6px rgba(244,162,97,0.5)',
+                width: `${progress}%`,
+                background: 'linear-gradient(90deg, var(--accent-peach), var(--accent-blue))',
+                transition: 'width 0.1s linear',
               }}
-            />
+            >
+              <div
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{
+                  backgroundColor: 'white',
+                  boxShadow: '0 0 6px rgba(244,162,97,0.5)',
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -301,9 +340,10 @@ export default function EpisodePreview({
           </button>
           <button
             onClick={handleSkipBack}
-            className="p-2 transition-all-200 hover:opacity-70"
+            className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
           >
             <SkipBack size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+            <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
           </button>
           <button
             onClick={handlePlayPause}
@@ -320,9 +360,10 @@ export default function EpisodePreview({
           </button>
           <button
             onClick={handleSkipForward}
-            className="p-2 transition-all-200 hover:opacity-70"
+            className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
           >
             <SkipForward size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+            <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
           </button>
           <div className="w-[34px]" /> {/* Spacer for symmetry */}
         </div>

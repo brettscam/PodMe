@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, Loader2 } from 'lucide-react'
 import type { VoiceDefinition } from '../../lib/types'
 
 interface VoiceCardProps {
@@ -15,9 +15,11 @@ interface VoiceCardProps {
 export default function VoiceCard({ voice, isDefault, assignedTopics, selected, compact, previewUrl, onClick }: VoiceCardProps) {
   const Icon = voice.icon
   const [playing, setPlaying] = useState(false)
+  const [loading, setLoading] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const cachedUrlRef = useRef<string | null>(null)
 
-  const handlePlay = (e: React.MouseEvent) => {
+  const handlePlay = async (e: React.MouseEvent) => {
     e.stopPropagation()
 
     if (playing && audioRef.current) {
@@ -27,15 +29,40 @@ export default function VoiceCard({ voice, isDefault, assignedTopics, selected, 
       return
     }
 
-    if (!previewUrl) return
-
     if (audioRef.current) {
       audioRef.current.pause()
     }
 
-    const audio = new Audio(previewUrl)
+    // Use provided preview URL, cached on-demand sample, or fetch new sample
+    let url = previewUrl || cachedUrlRef.current
+
+    if (!url) {
+      // Generate sample on demand via API
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/voice-sample?voice=${encodeURIComponent(voice.id)}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.audio) {
+            const binary = atob(data.audio)
+            const bytes = new Uint8Array(binary.length)
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+            const blob = new Blob([bytes], { type: 'audio/mpeg' })
+            url = URL.createObjectURL(blob)
+            cachedUrlRef.current = url
+          }
+        }
+      } catch {
+        // Silently fail
+      }
+      setLoading(false)
+    }
+
+    if (!url) return
+
+    const audio = new Audio(url)
     audioRef.current = audio
-    audio.play()
+    audio.play().catch(() => setPlaying(false))
     setPlaying(true)
     audio.onended = () => setPlaying(false)
     audio.onerror = () => setPlaying(false)
@@ -94,10 +121,12 @@ export default function VoiceCard({ voice, isDefault, assignedTopics, selected, 
       </div>
       <div
         onClick={handlePlay}
-        className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all-200 hover:opacity-80 cursor-pointer"
+        className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all-200 hover:opacity-80 active:scale-95 cursor-pointer"
         style={{ backgroundColor: playing ? `${voice.color}50` : `${voice.color}30` }}
       >
-        {playing ? (
+        {loading ? (
+          <Loader2 size={16} strokeWidth={1.5} className="animate-spin" style={{ color: voice.color }} />
+        ) : playing ? (
           <Pause size={14} strokeWidth={1.5} fill={voice.color} style={{ color: voice.color }} />
         ) : (
           <Play size={14} strokeWidth={1.5} fill={voice.color} style={{ color: voice.color }} />

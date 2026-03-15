@@ -8,6 +8,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   throttles: 'THROTTLES',
   voices: 'VOICES',
   episode: 'EPISODE',
+  profile: 'PROFILE',
 }
 
 interface TopBarProps {
