@@ -14,9 +14,11 @@ import Topics from './components/views/Topics'
 import Throttles from './components/views/Throttles'
 import Voices from './components/views/Voices'
 import EpisodePreview from './components/views/EpisodePreview'
+import EmailPreview from './components/views/EmailPreview'
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewName>('home')
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth()
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
@@ -24,17 +26,21 @@ export default function App() {
   const { currentEpisode, pastEpisodes } = useEpisodes()
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
 
-  // Show loading spinner while checking auth
+  // Show loading with Audio Pulse animation
   if (authLoading) {
     return (
       <div className="relative min-h-screen flex items-center justify-center">
         <GlowOrbs />
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
+          <h1 className="text-3xl font-bold tracking-tight mb-4">
             <span className="text-white">puck</span>
-            <span style={{ color: 'var(--accent-peach)' }}>puck</span>
+            <span style={{ color: 'var(--accent-pulse)' }}>puck</span>
           </h1>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</p>
+          <div className="flex items-end justify-center gap-1 h-8">
+            {[...Array(7)].map((_, i) => (
+              <div key={i} className="wave-bar" />
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -55,6 +61,7 @@ export default function App() {
             onNavigate={setCurrentView}
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}
+            onPreviewEmail={() => setShowEmailPreview(true)}
           />
         )
       case 'topics':
@@ -122,6 +129,11 @@ export default function App() {
         {renderView()}
       </main>
       <BottomNav currentView={currentView} onNavigate={setCurrentView} />
+
+      {/* Email Digest Preview Modal */}
+      {showEmailPreview && (
+        <EmailPreview onClose={() => setShowEmailPreview(false)} />
+      )}
     </div>
   )
 }

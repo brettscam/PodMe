@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb } from 'lucide-react'
+import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb, Eye } from 'lucide-react'
 import type { UserProfile, UserTopic, ViewName, KnowledgeBlock } from '../../lib/types'
 import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG, KNOWLEDGE_BLOCKS } from '../../lib/constants'
 import TopicChip from '../ui/TopicChip'
@@ -11,9 +11,10 @@ interface DashboardProps {
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
+  onPreviewEmail?: () => void
 }
 
-export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeChange, onToggleEmailDigest }: DashboardProps) {
+export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const [knowledgeBlock] = useState<KnowledgeBlock>(() => KNOWLEDGE_BLOCKS[Math.floor(Math.random() * KNOWLEDGE_BLOCKS.length)])
 
@@ -163,6 +164,35 @@ export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeC
         </div>
         <ToggleSwitch checked={profile.email_digest} onChange={onToggleEmailDigest} />
       </div>
+
+      {/* Email Preview Button (shown when digest is on) */}
+      {profile.email_digest && onPreviewEmail && (
+        <button
+          onClick={onPreviewEmail}
+          className="w-full flex items-center justify-between p-4 rounded-card transition-all-200"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--border-hover)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border-subtle)'
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <Eye size={18} strokeWidth={1.5} style={{ color: 'var(--accent-pulse)' }} />
+            <div className="text-left">
+              <p className="text-sm font-semibold text-white">Preview Email Digest</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                See what tomorrow's email will look like
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={16} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+        </button>
+      )}
 
       {/* Knowledge Block */}
       <div
