@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, Plus, Pin, PinOff, Star, Minus, Mic, Sparkles, X } from 'lucide-react'
 import type { UserTopic, Weight } from '../../lib/types'
-import { TOPIC_CATALOG, ALL_VOICES, getVoice, getTopic } from '../../lib/constants'
+import { ALL_VOICES, getVoice, getTopic } from '../../lib/constants'
 import ToggleSwitch from '../ui/ToggleSwitch'
 import WeightBadge from '../ui/WeightBadge'
 import TopicPickerModal from './TopicPickerModal'

@@ -1,4 +1,4 @@
-import { X, Check } from 'lucide-react'
+import { X } from 'lucide-react'
 import { TOPIC_CATALOG } from '../../lib/constants'
 
 interface TopicPickerModalProps {

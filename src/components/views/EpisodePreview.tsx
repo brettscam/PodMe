@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Mic, MessageCircle } from 'lucide-react'
-import type { Episode, SegmentSource } from '../../lib/types'
-import { getVoice, formatSeconds } from '../../lib/constants'
+import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink } from 'lucide-react'
+import type { Episode } from '../../lib/types'
+import { formatSeconds } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
 import ShareModal from '../ui/ShareModal'
 

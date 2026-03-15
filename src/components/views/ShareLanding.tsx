@@ -11,7 +11,7 @@ interface ShareLandingProps {
   shareToken?: string
 }
 
-export default function ShareLanding({ shareToken }: ShareLandingProps) {
+export default function ShareLanding({ shareToken: _shareToken }: ShareLandingProps) {
   // In Phase 3, this would fetch from Supabase by share_token
   const episode: Episode = SAMPLE_EPISODE
 
