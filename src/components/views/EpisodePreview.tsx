@@ -5,7 +5,8 @@ import { formatSeconds } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
 import ShareModal from '../ui/ShareModal'
 
-// Free sample podcast audio for demo purposes
+// Use generated episode audio if available, fall back to demo
+const EPISODE_AUDIO_URL = '/episodes/2026-03-14.mp3'
 const DEMO_AUDIO_URL = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 
 function TierDot({ tier }: { tier: number }) {
@@ -122,7 +123,8 @@ export default function EpisodePreview({
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        src={DEMO_AUDIO_URL}
+        src={EPISODE_AUDIO_URL}
+        onError={(e) => { (e.target as HTMLAudioElement).src = DEMO_AUDIO_URL }}
         preload="metadata"
         onLoadedMetadata={(e) => setDuration((e.target as HTMLAudioElement).duration)}
         onTimeUpdate={(e) => setCurrentTime((e.target as HTMLAudioElement).currentTime)}

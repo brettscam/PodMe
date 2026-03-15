@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Episode generation temp files
+scripts/temp_segments/
+
+# Generated episode audio (large files)
+public/episodes/*.mp3
