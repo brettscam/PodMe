@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react'
-import { nanoid } from 'nanoid'
 import type { UserTopic, Weight } from '../lib/types'
 import { DEFAULT_USER_TOPICS } from '../lib/constants'
 import { supabase } from '../lib/supabase'
@@ -22,6 +21,10 @@ export function useTopics(userId: string | undefined | null) {
 
       if (cancelled) return
 
+      if (error) {
+        console.error('Failed to load topics:', error.message, error.details)
+      }
+
       if (data && !error && data.length > 0) {
         setTopics(data.map(t => ({
           id: t.id,
@@ -37,13 +40,13 @@ export function useTopics(userId: string | undefined | null) {
         // New user — seed with defaults
         const seeded: UserTopic[] = DEFAULT_USER_TOPICS.map(t => ({
           ...t,
-          id: nanoid(),
+          id: crypto.randomUUID(),
           user_id: userId!,
         }))
         setTopics(seeded)
 
         // Insert defaults into Supabase
-        await supabase.from('user_topics').insert(
+        const { error: seedError } = await supabase.from('user_topics').insert(
           seeded.map(t => ({
             id: t.id,
             user_id: t.user_id,
@@ -55,6 +58,9 @@ export function useTopics(userId: string | undefined | null) {
             custom_tags: t.custom_tags,
           }))
         )
+        if (seedError) {
+          console.error('Failed to seed topics:', seedError.message, seedError.details)
+        }
       }
       setLoaded(true)
     }
@@ -70,7 +76,7 @@ export function useTopics(userId: string | undefined | null) {
       if (prev.length >= 12) return prev
       if (prev.some(t => t.topic_id === topicId)) return prev
       const newTopic: UserTopic = {
-        id: nanoid(),
+        id: crypto.randomUUID(),
         user_id: userId,
         topic_id: topicId,
         weight: 'standard',
@@ -90,7 +96,9 @@ export function useTopics(userId: string | undefined | null) {
         voice_override: null,
         sort_order: prev.length,
         custom_tags: [],
-      }).then()
+      }).then(({ error }) => {
+        if (error) console.error('Failed to insert topic:', error.message, error.details)
+      })
 
       return [...prev, newTopic]
     })
