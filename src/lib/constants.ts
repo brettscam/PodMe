@@ -139,7 +139,7 @@ export const DEFAULT_PROFILE = {
 }
 
 export const DEFAULT_USER_TOPICS = [
-  { id: '1', user_id: 'local-user', topic_id: 'earnings', weight: 'featured' as const, pinned: true, voice_override: 'strategist', sort_order: 0, custom_tags: ['NVIDIA earnings', 'Fed meeting'] },
+  { id: '1', user_id: 'local-user', topic_id: 'earnings', weight: 'featured' as const, pinned: true, voice_override: 'strategist', sort_order: 0, custom_tags: ['NVIDIA earnings', 'Fed meeting', 'Micron', 'Energy', 'S&P 500', 'Housing', 'Software', 'Tech'] },
   { id: '2', user_id: 'local-user', topic_id: 'tech', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 1, custom_tags: ['Claude updates', 'Apple'] },
   { id: '3', user_id: 'local-user', topic_id: 'world', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 2, custom_tags: [] },
   { id: '4', user_id: 'local-user', topic_id: 'local', weight: 'standard' as const, pinned: true, voice_override: 'neighbor', sort_order: 3, custom_tags: ['Marin housing', 'BART'] },
