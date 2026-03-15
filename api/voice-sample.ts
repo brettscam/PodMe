@@ -1,17 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 // Voice name -> ElevenLabs voice ID mapping
-// Resolved dynamically on first call if not hardcoded
+// Each key maps to a distinct ElevenLabs pre-made voice
 const VOICE_MAP: Record<string, string> = {
-  'southern-gentleman': '',    // Resolved by name
-  'scottish-mentor': '',       // Resolved by name
-  'modern-brand-ambassador': '', // Resolved by name
-  'anchor':        'pNInz6obpgDQGcFmaJgB',
-  'strategist':    'ErXwobaYiN019PkySvjV',
-  'neighbor':      'VR6AewLTigWG4xSOukaG',
-  'correspondent': 'EXAVITQu4vr4xnSDxMaL',
-  'analyst':       '21m00Tcm4TlvDq8ikWAM',
-  'host':          'AZnzlk1XvdvUeBnXmlld',
+  'southern-gentleman': 'TX3LPaxmHKxFdv7VOQHJ',  // Liam
+  'scottish-mentor':    'onwK4e9ZLuTAKqWW03F9',   // Daniel
+  'modern-brand-ambassador': 'iP95p4xoKVk53GoZ742B', // Chris
+  'anchor':        'nPczCjzI2devNBz1zQrb',   // Brian
+  'strategist':    'ErXwobaYiN019PkySvjV',   // Antoni
+  'neighbor':      'bIHbv24MWmeRgasZH58o',   // Will
+  'correspondent': 'EXAVITQu4vr4xnSDxMaL',   // Bella
+  'analyst':       '21m00Tcm4TlvDq8ikWAM',   // Rachel
+  'host':          'AZnzlk1XvdvUeBnXmlld',   // Domi
+  'sportscaster':  'VR6AewLTigWG4xSOukaG',   // Arnold
+  'storyteller':   'JBFqnCBsd6RMkjVDRZzb',   // George
+  'insider':       'jsCqWAovK2LkecY7zXl4',   // Freya
+  'professor':     'pFZP5JQG7iQjIQuC4Bku',   // Lily
 }
 
 const SAMPLE_LINES: Record<string, string> = {
@@ -24,46 +28,16 @@ const SAMPLE_LINES: Record<string, string> = {
   'correspondent': "This is The Correspondent, live and ready. Here's your news rundown.",
   'analyst': "I'm The Analyst. Let's break down the numbers and the trends.",
   'host': "Welcome! I'm The Host. Let's dive into something interesting.",
+  'sportscaster': "Game time! I'm The Sportscaster. Let me bring you the highlights.",
+  'storyteller': "Gather round. I'm The Storyteller. Let me paint you a picture of today's most fascinating stories.",
+  'insider': "Hey, you want the real story? I'm The Insider. Here's what everyone's talking about behind closed doors.",
+  'professor': "Fascinating developments today. I'm The Professor. Let me connect the dots for you.",
 }
 
 const MODEL_ID = 'eleven_multilingual_v2'
 
-async function findVoiceByName(apiKey: string, searchName: string): Promise<string | null> {
-  const res = await fetch('https://api.elevenlabs.io/v1/voices', {
-    headers: { 'xi-api-key': apiKey },
-  })
-  if (!res.ok) return null
-  const data = await res.json()
-  const voice = data.voices?.find((v: { name: string }) =>
-    v.name.toLowerCase().includes(searchName.toLowerCase())
-  )
-  return voice?.voice_id || null
-}
-
-async function resolveVoiceId(apiKey: string, voiceKey: string): Promise<string> {
-  // If we already have a hardcoded ID, use it
-  if (VOICE_MAP[voiceKey] && VOICE_MAP[voiceKey].length > 5) {
-    return VOICE_MAP[voiceKey]
-  }
-
-  // Try to find by name in ElevenLabs library
-  const searchNames: Record<string, string> = {
-    'southern-gentleman': 'Southern Gentleman',
-    'scottish-mentor': 'Scottish Mentor',
-    'modern-brand-ambassador': 'Modern Brand Ambassador',
-  }
-
-  const searchName = searchNames[voiceKey]
-  if (searchName) {
-    const foundId = await findVoiceByName(apiKey, searchName)
-    if (foundId) {
-      VOICE_MAP[voiceKey] = foundId
-      return foundId
-    }
-  }
-
-  // Fallback to Adam (anchor)
-  return 'pNInz6obpgDQGcFmaJgB'
+function resolveVoiceId(voiceKey: string): string {
+  return VOICE_MAP[voiceKey] || VOICE_MAP['anchor']
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -90,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const voiceId = await resolveVoiceId(apiKey, voiceKey)
+    const voiceId = resolveVoiceId(voiceKey)
 
     const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',

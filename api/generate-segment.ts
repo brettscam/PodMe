@@ -1,59 +1,27 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 // Voice name -> ElevenLabs voice ID mapping
-// These will be resolved dynamically on first call if not hardcoded
+// Each key maps to a distinct ElevenLabs pre-made voice
 const VOICE_MAP: Record<string, string> = {
-  // User's selected ElevenLabs voices
-  'southern-gentleman': '',    // Will be resolved by name
-  'scottish-mentor': '',       // Will be resolved by name
-  'modern-brand-ambassador': '', // Will be resolved by name
-  // ElevenLabs pre-made voices as fallbacks
-  'anchor':        'pNInz6obpgDQGcFmaJgB',   // Adam
-  'strategist':    'ErXwobaYiN019PkySvjV',   // Antoni
-  'neighbor':      'VR6AewLTigWG4xSOukaG',   // Arnold
-  'correspondent': 'EXAVITQu4vr4xnSDxMaL',   // Bella
-  'analyst':       '21m00Tcm4TlvDq8ikWAM',   // Rachel
-  'host':          'AZnzlk1XvdvUeBnXmlld',   // Domi
+  'southern-gentleman': 'TX3LPaxmHKxFdv7VOQHJ',  // Liam — warm American male
+  'scottish-mentor':    'onwK4e9ZLuTAKqWW03F9',   // Daniel — deep British male
+  'modern-brand-ambassador': 'iP95p4xoKVk53GoZ742B', // Chris — casual male
+  'anchor':        'nPczCjzI2devNBz1zQrb',   // Brian — American narrator
+  'strategist':    'ErXwobaYiN019PkySvjV',   // Antoni — young analytical male
+  'neighbor':      'bIHbv24MWmeRgasZH58o',   // Will — friendly male
+  'correspondent': 'EXAVITQu4vr4xnSDxMaL',   // Bella — crisp female
+  'analyst':       '21m00Tcm4TlvDq8ikWAM',   // Rachel — calm female
+  'host':          'AZnzlk1XvdvUeBnXmlld',   // Domi — strong female
+  'sportscaster':  'VR6AewLTigWG4xSOukaG',   // Arnold — energetic male
+  'storyteller':   'JBFqnCBsd6RMkjVDRZzb',   // George — warm British male
+  'insider':       'jsCqWAovK2LkecY7zXl4',   // Freya — expressive female
+  'professor':     'pFZP5JQG7iQjIQuC4Bku',   // Lily — thoughtful British female
 }
 
 const MODEL_ID = 'eleven_multilingual_v2'
 
-async function findVoiceByName(apiKey: string, searchName: string): Promise<string | null> {
-  const res = await fetch('https://api.elevenlabs.io/v1/voices', {
-    headers: { 'xi-api-key': apiKey },
-  })
-  if (!res.ok) return null
-  const data = await res.json()
-  const voice = data.voices?.find((v: { name: string }) =>
-    v.name.toLowerCase().includes(searchName.toLowerCase())
-  )
-  return voice?.voice_id || null
-}
-
-async function resolveVoiceId(apiKey: string, voiceKey: string): Promise<string> {
-  // If we already have a hardcoded ID, use it
-  if (VOICE_MAP[voiceKey] && VOICE_MAP[voiceKey].length > 5) {
-    return VOICE_MAP[voiceKey]
-  }
-
-  // Try to find by name in ElevenLabs library
-  const searchNames: Record<string, string> = {
-    'southern-gentleman': 'Southern Gentleman',
-    'scottish-mentor': 'Scottish Mentor',
-    'modern-brand-ambassador': 'Modern Brand Ambassador',
-  }
-
-  const searchName = searchNames[voiceKey]
-  if (searchName) {
-    const foundId = await findVoiceByName(apiKey, searchName)
-    if (foundId) {
-      VOICE_MAP[voiceKey] = foundId
-      return foundId
-    }
-  }
-
-  // Fallback to Adam (anchor)
-  return 'pNInz6obpgDQGcFmaJgB'
+function resolveVoiceId(voiceKey: string): string {
+  return VOICE_MAP[voiceKey] || VOICE_MAP['anchor']
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -73,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const voiceId = await resolveVoiceId(apiKey, voice)
+    const voiceId = resolveVoiceId(voice)
 
     const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
