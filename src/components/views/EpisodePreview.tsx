@@ -1,13 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight, Volume2, VolumeX, Zap } from 'lucide-react'
 import type { Episode } from '../../lib/types'
-import { formatSeconds } from '../../lib/constants'
+import { formatSeconds, getVoice } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
 import ShareModal from '../ui/ShareModal'
-
-// Use generated episode audio if available, fall back to demo
-const EPISODE_AUDIO_URL = '/episodes/2026-03-14.mp3'
-const DEMO_AUDIO_URL = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
 
 function TierDot({ tier }: { tier: number }) {
   const color = tier === 1 ? 'var(--accent-blue)' : tier === 2 ? 'var(--success)' : 'var(--text-muted)'
@@ -34,74 +30,159 @@ interface EpisodePreviewProps {
   onCopy: () => void
   onShare: (title: string) => void
   generationProgress?: GenerationProgress
+  generatedAudioUrls?: string[]
   onGenerate?: () => void
 }
 
 export default function EpisodePreview({
   episode, pastEpisodes, shareToken, copied, listenCount,
   onGenerateShare, getShareUrl, onCopy, onShare,
-  generationProgress, onGenerate,
+  generationProgress, generatedAudioUrls, onGenerate,
 }: EpisodePreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isMuted, setIsMuted] = useState(false)
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0)
+  const [currentTrack, setCurrentTrack] = useState(0)
+  const [trackDurations, setTrackDurations] = useState<number[]>([])
   const [showShareModal, setShowShareModal] = useState(false)
   const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null)
+  const [isScrubbing, setIsScrubbing] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const progressRef = useRef<HTMLDivElement | null>(null)
 
   const activeEpisode = selectedEpisode || episode
   const totalEpisodeDuration = activeEpisode.segments.reduce((sum, s) => sum + s.duration_seconds, 0)
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
-  // Map audio time to simulated segment index
+  // Determine audio source — use generated audio if available
+  const hasGeneratedAudio = generatedAudioUrls && generatedAudioUrls.length > 0
+  const audioSrc = hasGeneratedAudio ? generatedAudioUrls[currentTrack] : undefined
+
+  // Multi-track timing
+  const totalAudioDuration = hasGeneratedAudio
+    ? trackDurations.reduce((sum, d) => sum + d, 0)
+    : 0
+  const elapsedBefore = trackDurations.slice(0, currentTrack).reduce((sum, d) => sum + d, 0)
+  const globalTime = elapsedBefore + currentTime
+  const progress = hasGeneratedAudio
+    ? (totalAudioDuration > 0 ? (globalTime / totalAudioDuration) * 100 : 0)
+    : 0
+
+  // Map current track to segment index
   useEffect(() => {
-    if (duration <= 0) return
-    const ratio = currentTime / duration
-    const simTime = ratio * totalEpisodeDuration
-    let idx = 0
-    for (let i = 0; i < activeEpisode.segments.length; i++) {
-      const seg = activeEpisode.segments[i]
-      if (simTime >= seg.start_time_seconds && simTime < seg.start_time_seconds + seg.duration_seconds) {
-        idx = i
-        break
-      }
-      if (i === activeEpisode.segments.length - 1) idx = i
+    if (hasGeneratedAudio) {
+      setCurrentSegmentIndex(Math.min(currentTrack, activeEpisode.segments.length - 1))
     }
-    setCurrentSegmentIndex(idx)
-  }, [currentTime, duration, totalEpisodeDuration, activeEpisode.segments])
+  }, [currentTrack, activeEpisode.segments.length, hasGeneratedAudio])
+
+  // Auto-advance to next track
+  const handleEnded = useCallback(() => {
+    if (hasGeneratedAudio && generatedAudioUrls && currentTrack < generatedAudioUrls.length - 1) {
+      setCurrentTrack(prev => prev + 1)
+      setTimeout(() => audioRef.current?.play(), 50)
+    } else {
+      setIsPlaying(false)
+      setCurrentTime(0)
+      setCurrentTrack(0)
+    }
+  }, [hasGeneratedAudio, currentTrack, generatedAudioUrls])
+
+  // Store track duration
+  const handleMetadata = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const dur = (e.target as HTMLAudioElement).duration
+    setDuration(dur)
+    if (hasGeneratedAudio) {
+      setTrackDurations(prev => {
+        const next = [...prev]
+        next[currentTrack] = dur
+        return next
+      })
+    }
+  }, [hasGeneratedAudio, currentTrack])
 
   const handlePlayPause = useCallback(() => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || !audioSrc) return
     if (isPlaying) {
       audio.pause()
     } else {
       audio.play().catch(() => {})
     }
-  }, [isPlaying])
+  }, [isPlaying, audioSrc])
 
   const handleSkipBack = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-    audio.currentTime = Math.max(0, audio.currentTime - 15)
-  }, [])
+    const newTime = audio.currentTime - 15
+    if (hasGeneratedAudio && newTime < 0 && currentTrack > 0) {
+      setCurrentTrack(prev => prev - 1)
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = Math.max(0, audioRef.current.duration + newTime)
+          if (isPlaying) audioRef.current.play()
+        }
+      }, 50)
+      return
+    }
+    audio.currentTime = Math.max(0, newTime)
+  }, [hasGeneratedAudio, currentTrack, isPlaying])
 
   const handleSkipForward = useCallback(() => {
     const audio = audioRef.current
     if (!audio) return
-    audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 15)
-  }, [])
+    const newTime = audio.currentTime + 15
+    if (hasGeneratedAudio && generatedAudioUrls && newTime > duration && currentTrack < generatedAudioUrls.length - 1) {
+      setCurrentTrack(prev => prev + 1)
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0
+          if (isPlaying) audioRef.current.play()
+        }
+      }, 50)
+      return
+    }
+    audio.currentTime = Math.min(audio.duration || 0, newTime)
+  }, [hasGeneratedAudio, generatedAudioUrls, duration, currentTrack, isPlaying])
 
-  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const audio = audioRef.current
-    if (!audio || !audio.duration) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const pct = x / rect.width
-    audio.currentTime = pct * audio.duration
-  }, [])
+  // Scrubbing
+  const seekToPosition = useCallback((clientX: number) => {
+    if (!progressRef.current || !audioRef.current || !duration) return
+    const rect = progressRef.current.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    audioRef.current.currentTime = ratio * duration
+  }, [duration])
+
+  useEffect(() => {
+    if (!isScrubbing) return
+    const handleMove = (e: MouseEvent) => seekToPosition(e.clientX)
+    const handleUp = () => setIsScrubbing(false)
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [isScrubbing, seekToPosition])
+
+  useEffect(() => {
+    if (!isScrubbing) return
+    const handleMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) seekToPosition(e.touches[0].clientX)
+    }
+    const handleEnd = () => setIsScrubbing(false)
+    window.addEventListener('touchmove', handleMove, { passive: true })
+    window.addEventListener('touchend', handleEnd)
+    return () => {
+      window.removeEventListener('touchmove', handleMove)
+      window.removeEventListener('touchend', handleEnd)
+    }
+  }, [isScrubbing, seekToPosition])
+
+  const handleProgressInteraction = (clientX: number) => {
+    seekToPosition(clientX)
+    setIsScrubbing(true)
+  }
 
   const toggleMute = useCallback(() => {
     const audio = audioRef.current
@@ -120,30 +201,38 @@ export default function EpisodePreview({
     if (audio) { audio.pause(); audio.currentTime = 0 }
     setIsPlaying(false)
     setCurrentTime(0)
+    setCurrentTrack(0)
     setCurrentSegmentIndex(0)
+    setTrackDurations([])
     const isActive = selectedEpisode?.date === ep.date
     setSelectedEpisode(isActive ? null : ep)
   }
 
   const sourceSummary = activeEpisode.show_notes?.source_summary
 
-  // Simulated display time mapped from audio position to episode duration
-  const displayCurrentTime = duration > 0 ? Math.floor((currentTime / duration) * totalEpisodeDuration) : 0
+  // Display time
+  const displayCurrentTime = hasGeneratedAudio
+    ? Math.floor(globalTime)
+    : 0
+  const displayTotalTime = hasGeneratedAudio && totalAudioDuration > 0
+    ? Math.floor(totalAudioDuration)
+    : totalEpisodeDuration
 
   return (
     <div className="space-y-4">
-      {/* Hidden audio element */}
-      <audio
-        ref={audioRef}
-        src={EPISODE_AUDIO_URL}
-        onError={(e) => { (e.target as HTMLAudioElement).src = DEMO_AUDIO_URL }}
-        preload="metadata"
-        onLoadedMetadata={(e) => setDuration((e.target as HTMLAudioElement).duration)}
-        onTimeUpdate={(e) => setCurrentTime((e.target as HTMLAudioElement).currentTime)}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}
-      />
+      {/* Audio element — only rendered when we have generated audio */}
+      {audioSrc && (
+        <audio
+          ref={audioRef}
+          src={audioSrc}
+          preload="metadata"
+          onLoadedMetadata={handleMetadata}
+          onTimeUpdate={(e) => setCurrentTime((e.target as HTMLAudioElement).currentTime)}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={handleEnded}
+        />
+      )}
 
       {/* Header */}
       <div>
@@ -231,6 +320,24 @@ export default function EpisodePreview({
         </div>
       )}
 
+      {/* Segment dots timeline (generated audio) */}
+      {hasGeneratedAudio && (
+        <div className="flex gap-1 px-1">
+          {activeEpisode.segments.map((seg, i) => {
+            const v = getVoice(seg.voice)
+            return (
+              <div
+                key={i}
+                className="h-1.5 rounded-full flex-1 transition-all"
+                style={{
+                  backgroundColor: i <= currentSegmentIndex ? v.color : `${v.color}30`,
+                }}
+              />
+            )
+          })}
+        </div>
+      )}
+
       {/* Timeline */}
       <div
         className="rounded-card p-4"
@@ -249,125 +356,112 @@ export default function EpisodePreview({
         ))}
       </div>
 
-      {/* Player Bar */}
-      <div
-        className="rounded-card p-4"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-white">
-            {activeEpisode.segments[currentSegmentIndex]?.title}
-          </span>
-          <span className="tabular-nums text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            {formatSeconds(displayCurrentTime)} / {formatSeconds(totalEpisodeDuration)}
-          </span>
-        </div>
-
-        {/* Scrubble progress bar with touch support */}
+      {/* Player Bar — only shown when generated audio is available */}
+      {hasGeneratedAudio && (
         <div
-          className="w-full relative mb-4 cursor-pointer group"
-          style={{ height: 28, display: 'flex', alignItems: 'center' }}
-          onMouseDown={e => {
-            handleProgressClick(e)
-            const handleMove = (ev: MouseEvent) => {
-              const audio = audioRef.current
-              if (!audio || !audio.duration) return
-              const rect = e.currentTarget.getBoundingClientRect()
-              const pct = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
-              audio.currentTime = pct * audio.duration
-            }
-            const handleUp = () => {
-              window.removeEventListener('mousemove', handleMove)
-              window.removeEventListener('mouseup', handleUp)
-            }
-            window.addEventListener('mousemove', handleMove)
-            window.addEventListener('mouseup', handleUp)
-          }}
-          onTouchStart={e => {
-            if (e.touches.length === 0) return
-            const audio = audioRef.current
-            if (!audio || !audio.duration) return
-            const rect = e.currentTarget.getBoundingClientRect()
-            const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width))
-            audio.currentTime = pct * audio.duration
-            const handleMove = (ev: TouchEvent) => {
-              if (ev.touches.length === 0) return
-              const p = Math.max(0, Math.min(1, (ev.touches[0].clientX - rect.left) / rect.width))
-              audio.currentTime = p * audio.duration
-            }
-            const handleEnd = () => {
-              window.removeEventListener('touchmove', handleMove)
-              window.removeEventListener('touchend', handleEnd)
-            }
-            window.addEventListener('touchmove', handleMove, { passive: true })
-            window.addEventListener('touchend', handleEnd)
+          className="rounded-card p-4"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
           }}
         >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {isPlaying && (
+                <div className="flex items-end gap-0.5 h-3">
+                  <div className="wave-bar" style={{ width: 2, height: 12, animationDuration: '0.8s' }} />
+                  <div className="wave-bar" style={{ width: 2, height: 12, animationDuration: '1.0s', animationDelay: '0.1s' }} />
+                  <div className="wave-bar" style={{ width: 2, height: 12, animationDuration: '0.9s', animationDelay: '0.2s' }} />
+                </div>
+              )}
+              <span className="text-xs font-semibold text-white">
+                {activeEpisode.segments[currentSegmentIndex]?.title}
+              </span>
+            </div>
+            <span className="tabular-nums text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {formatSeconds(displayCurrentTime)} / {formatSeconds(displayTotalTime)}
+            </span>
+          </div>
+
+          {/* Progress bar with scrubbing */}
           <div
-            className="w-full rounded-full"
-            style={{ height: 5, backgroundColor: 'rgba(255,255,255,0.08)' }}
+            ref={progressRef}
+            className="w-full relative mb-4 cursor-pointer group"
+            style={{ height: 28, display: 'flex', alignItems: 'center' }}
+            onMouseDown={e => handleProgressInteraction(e.clientX)}
+            onTouchStart={e => {
+              if (e.touches.length > 0) handleProgressInteraction(e.touches[0].clientX)
+            }}
           >
             <div
-              className="h-full rounded-full relative"
+              className="w-full rounded-full"
               style={{
-                width: `${progress}%`,
-                background: 'linear-gradient(90deg, var(--accent-peach), var(--accent-blue))',
-                transition: 'width 0.1s linear',
+                height: isScrubbing ? 6 : 5,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                transition: 'height 0.15s ease',
               }}
             >
               <div
-                className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-full rounded-full relative"
                 style={{
-                  backgroundColor: 'white',
-                  boxShadow: '0 0 6px rgba(244,162,97,0.5)',
+                  width: `${progress}%`,
+                  background: 'linear-gradient(90deg, var(--accent-peach), var(--accent-blue))',
+                  transition: isScrubbing ? 'none' : 'width 0.1s linear',
                 }}
-              />
+              >
+                <div
+                  className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full transition-all"
+                  style={{
+                    width: isScrubbing ? 14 : 10,
+                    height: isScrubbing ? 14 : 10,
+                    backgroundColor: 'white',
+                    boxShadow: '0 0 6px rgba(244,162,97,0.5)',
+                  }}
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Transport controls */}
-        <div className="flex items-center justify-center gap-5">
-          <button onClick={toggleMute} className="p-2 transition-all-200 hover:opacity-70">
-            {isMuted ? (
-              <VolumeX size={18} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
-            ) : (
-              <Volume2 size={18} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-            )}
-          </button>
-          <button
-            onClick={handleSkipBack}
-            className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
-          >
-            <SkipBack size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-            <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
-          </button>
-          <button
-            onClick={handlePlayPause}
-            className="w-12 h-12 rounded-full flex items-center justify-center transition-all-200 hover:scale-105 active:scale-95"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent-peach), var(--accent-blue))',
-            }}
-          >
-            {isPlaying ? (
-              <Pause size={20} strokeWidth={1.5} fill="white" style={{ color: 'white' }} />
-            ) : (
-              <Play size={20} strokeWidth={1.5} fill="white" style={{ color: 'white', marginLeft: 2 }} />
-            )}
-          </button>
-          <button
-            onClick={handleSkipForward}
-            className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
-          >
-            <SkipForward size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-            <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
-          </button>
-          <div className="w-[34px]" /> {/* Spacer for symmetry */}
+          {/* Transport controls */}
+          <div className="flex items-center justify-center gap-5">
+            <button onClick={toggleMute} className="p-2 transition-all-200 hover:opacity-70">
+              {isMuted ? (
+                <VolumeX size={18} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+              ) : (
+                <Volume2 size={18} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+              )}
+            </button>
+            <button
+              onClick={handleSkipBack}
+              className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
+            >
+              <SkipBack size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+              <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
+            </button>
+            <button
+              onClick={handlePlayPause}
+              className="w-12 h-12 rounded-full flex items-center justify-center transition-all-200 hover:scale-105 active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, var(--accent-peach), var(--accent-blue))',
+              }}
+            >
+              {isPlaying ? (
+                <Pause size={20} strokeWidth={1.5} fill="white" style={{ color: 'white' }} />
+              ) : (
+                <Play size={20} strokeWidth={1.5} fill="white" style={{ color: 'white', marginLeft: 2 }} />
+              )}
+            </button>
+            <button
+              onClick={handleSkipForward}
+              className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
+            >
+              <SkipForward size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+              <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
+            </button>
+            <div className="w-[34px]" /> {/* Spacer for symmetry */}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Share Section */}
       <button

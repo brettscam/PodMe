@@ -134,6 +134,7 @@ export default function App() {
             onCopy={copyShareLink}
             onShare={nativeShare}
             generationProgress={genProgress}
+            generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
             onGenerate={() => generateEpisode(currentEpisode.segments)}
           />
         )
