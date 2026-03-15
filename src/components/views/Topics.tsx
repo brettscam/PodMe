@@ -1,0 +1,256 @@
+import { useState } from 'react'
+import { ChevronDown, Plus, Pin, PinOff, Star, Minus, Mic, Sparkles, X } from 'lucide-react'
+import type { UserTopic, Weight } from '../../lib/types'
+import { TOPIC_CATALOG, ALL_VOICES, getVoice, getTopic } from '../../lib/constants'
+import ToggleSwitch from '../ui/ToggleSwitch'
+import WeightBadge from '../ui/WeightBadge'
+import TopicPickerModal from './TopicPickerModal'
+
+interface TopicsProps {
+  topics: UserTopic[]
+  discoveryEnabled: boolean
+  defaultVoice: string
+  onAddTopic: (topicId: string) => void
+  onRemoveTopic: (topicId: string) => void
+  onSetWeight: (topicId: string, weight: Weight) => void
+  onTogglePin: (topicId: string) => void
+  onSetVoiceOverride: (topicId: string, voiceId: string | null) => void
+  onToggleDiscovery: (enabled: boolean) => void
+}
+
+export default function Topics({
+  topics, discoveryEnabled, defaultVoice, onAddTopic, onRemoveTopic,
+  onSetWeight, onTogglePin, onSetVoiceOverride, onToggleDiscovery,
+}: TopicsProps) {
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null)
+  const [showPicker, setShowPicker] = useState(false)
+
+  const weights: { value: Weight; label: string; icon: typeof Star }[] = [
+    { value: 'featured', label: 'Featured', icon: Star },
+    { value: 'standard', label: 'Standard', icon: Minus },
+    { value: 'brief', label: 'Brief', icon: Minus },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="caps-label" style={{ color: 'var(--text-muted)' }}>YOUR TOPICS</span>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            {topics.length} of 12 active
+          </p>
+        </div>
+        <button
+          onClick={() => setShowPicker(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all-200"
+          style={{
+            border: '1px solid var(--accent-blue)',
+            color: 'var(--accent-blue)',
+          }}
+        >
+          <Plus size={14} strokeWidth={1.5} />
+          Add Topic
+        </button>
+      </div>
+
+      {/* Discovery Toggle */}
+      <div
+        className="flex items-center justify-between p-4 rounded-card"
+        style={{
+          backgroundColor: 'rgba(244,162,97,0.06)',
+          border: '1px solid rgba(244,162,97,0.15)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <Sparkles size={18} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
+          <div>
+            <p className="text-sm font-semibold text-white">Wild Card Discovery</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              One trending story outside your topics per episode
+            </p>
+          </div>
+        </div>
+        <ToggleSwitch checked={discoveryEnabled} onChange={onToggleDiscovery} />
+      </div>
+
+      {/* Topic Cards */}
+      {topics.map(ut => {
+        const topicDef = getTopic(ut.topic_id)
+        if (!topicDef) return null
+        const isExpanded = expandedTopic === ut.topic_id
+        const TopicIcon = topicDef.icon
+        const activeVoice = getVoice(ut.voice_override || defaultVoice)
+
+        return (
+          <div
+            key={ut.topic_id}
+            className="rounded-card overflow-hidden transition-all-200"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              border: `1px solid ${isExpanded ? 'var(--border-active)' : 'var(--border-subtle)'}`,
+            }}
+          >
+            {/* Collapsed header */}
+            <button
+              onClick={() => setExpandedTopic(isExpanded ? null : ut.topic_id)}
+              className="w-full flex items-center gap-3 p-4 text-left"
+            >
+              <TopicIcon size={20} strokeWidth={1.5} style={{ color: topicDef.color }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-white">{topicDef.label}</span>
+                  <WeightBadge weight={ut.weight} />
+                  {ut.pinned && <Pin size={12} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />}
+                  <span className="flex items-center gap-1">
+                    <Mic size={10} strokeWidth={1.5} style={{ color: activeVoice.color }} />
+                    <span className="text-[10px] font-medium" style={{ color: activeVoice.color }}>
+                      {activeVoice.name.replace('The ', '')}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <ChevronDown
+                size={16}
+                strokeWidth={1.5}
+                className="transition-transform duration-200"
+                style={{
+                  color: 'var(--text-muted)',
+                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                }}
+              />
+            </button>
+
+            {/* Expanded content */}
+            {isExpanded && (
+              <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                {/* Coverage Depth */}
+                <div className="pt-4">
+                  <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>COVERAGE DEPTH</span>
+                  <div className="flex gap-2 mt-2">
+                    {weights.map(({ value, label, icon: WIcon }) => (
+                      <button
+                        key={value}
+                        onClick={() => onSetWeight(ut.topic_id, value)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all-200"
+                        style={{
+                          backgroundColor: ut.weight === value ? 'rgba(74,144,217,0.12)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${ut.weight === value ? 'rgba(74,144,217,0.4)' : 'var(--border-subtle)'}`,
+                          color: ut.weight === value ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        {value === 'featured' && <WIcon size={12} strokeWidth={1.5} />}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pin toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {ut.pinned ? (
+                      <PinOff size={14} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+                    ) : (
+                      <Pin size={14} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+                    )}
+                    <div>
+                      <p className="text-xs font-semibold text-white">Pin to every episode</p>
+                      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Always included, even in short episodes</p>
+                    </div>
+                  </div>
+                  <ToggleSwitch checked={ut.pinned} onChange={() => onTogglePin(ut.topic_id)} />
+                </div>
+
+                {/* Voice selection */}
+                <div>
+                  <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>SEGMENT VOICE</span>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={() => onSetVoiceOverride(ut.topic_id, null)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all-200"
+                      style={{
+                        backgroundColor: !ut.voice_override ? 'rgba(74,144,217,0.15)' : 'var(--bg-card)',
+                        border: `1px solid ${!ut.voice_override ? 'rgba(74,144,217,0.4)' : 'var(--border-subtle)'}`,
+                        color: !ut.voice_override ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      Default
+                    </button>
+                    {ALL_VOICES.map(voice => {
+                      const VIcon = voice.icon
+                      const isSelected = ut.voice_override === voice.id
+                      return (
+                        <button
+                          key={voice.id}
+                          onClick={() => onSetVoiceOverride(ut.topic_id, voice.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all-200"
+                          style={{
+                            backgroundColor: isSelected ? `${voice.color}26` : 'var(--bg-card)',
+                            border: `1px solid ${isSelected ? `${voice.color}66` : 'var(--border-subtle)'}`,
+                            color: isSelected ? voice.color : 'var(--text-secondary)',
+                          }}
+                        >
+                          <VIcon size={12} strokeWidth={1.5} />
+                          {voice.name.replace('The ', '')}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Sub-topics */}
+                <div>
+                  <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>INCLUDES</span>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {topicDef.subs.map(sub => (
+                      <span
+                        key={sub}
+                        className="px-2 py-1 rounded-md text-[11px]"
+                        style={{
+                          backgroundColor: 'rgba(255,255,255,0.04)',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        {sub}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Remove */}
+                <button
+                  onClick={() => {
+                    onRemoveTopic(ut.topic_id)
+                    setExpandedTopic(null)
+                  }}
+                  className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all-200"
+                  style={{
+                    border: '1px solid var(--danger)',
+                    color: 'var(--danger)',
+                  }}
+                >
+                  <span className="flex items-center justify-center gap-1.5">
+                    <X size={14} strokeWidth={1.5} />
+                    Remove Topic
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Picker Modal */}
+      {showPicker && (
+        <TopicPickerModal
+          currentTopicIds={topics.map(t => t.topic_id)}
+          onAdd={topicId => {
+            onAddTopic(topicId)
+          }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+    </div>
+  )
+}
