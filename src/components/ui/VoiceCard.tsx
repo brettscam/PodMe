@@ -1,5 +1,20 @@
-import { Play } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Play, Pause } from 'lucide-react'
 import type { VoiceDefinition } from '../../lib/types'
+
+// ElevenLabs voice preview sample URLs mapped to our voice IDs
+const VOICE_SAMPLES: Record<string, string> = {
+  anchor:        'https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/4fa63e25-40a6-4a3e-a032-c3a1ce4a4116.mp3',
+  correspondent: 'https://storage.googleapis.com/eleven-public-prod/premade/voices/EXAVITQu4vr4xnSDxMaL/04e1e3e0-bfe7-4fbb-af35-5f6310a5e3c0.mp3',
+  analyst:       'https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/df6788f9-5c96-470d-8312-aab3b3d8f50a.mp3',
+  neighbor:      'https://storage.googleapis.com/eleven-public-prod/premade/voices/VR6AewLTigWG4xSOukaG/66448ee2-04e0-4a90-ad1b-db934e68fa28.mp3',
+  host:          'https://storage.googleapis.com/eleven-public-prod/premade/voices/AZnzlk1XvdvUeBnXmlld/b5349de9-db08-4304-aa65-1a4bab55d44a.mp3',
+  sportscaster:  'https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/4fa63e25-40a6-4a3e-a032-c3a1ce4a4116.mp3',
+  strategist:    'https://storage.googleapis.com/eleven-public-prod/premade/voices/ErXwobaYiN019PkySvjV/2e5e2e05-3810-4153-9a5c-432ca5cb8e21.mp3',
+  storyteller:   'https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/4fa63e25-40a6-4a3e-a032-c3a1ce4a4116.mp3',
+  insider:       'https://storage.googleapis.com/eleven-public-prod/premade/voices/EXAVITQu4vr4xnSDxMaL/04e1e3e0-bfe7-4fbb-af35-5f6310a5e3c0.mp3',
+  professor:     'https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/df6788f9-5c96-470d-8312-aab3b3d8f50a.mp3',
+}
 
 interface VoiceCardProps {
   voice: VoiceDefinition
@@ -12,6 +27,33 @@ interface VoiceCardProps {
 
 export default function VoiceCard({ voice, isDefault, assignedTopics, selected, compact, onClick }: VoiceCardProps) {
   const Icon = voice.icon
+  const [playing, setPlaying] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+
+    if (playing && audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+      setPlaying(false)
+      return
+    }
+
+    const sampleUrl = VOICE_SAMPLES[voice.id]
+    if (!sampleUrl) return
+
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
+
+    const audio = new Audio(sampleUrl)
+    audioRef.current = audio
+    audio.play()
+    setPlaying(true)
+    audio.onended = () => setPlaying(false)
+    audio.onerror = () => setPlaying(false)
+  }
 
   if (compact) {
     return (
@@ -52,7 +94,7 @@ export default function VoiceCard({ voice, isDefault, assignedTopics, selected, 
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-white">{voice.name}</span>
           {isDefault && (
-            <span className="caps-label px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: 'var(--accent-blue)22', color: 'var(--accent-blue)' }}>
+            <span className="caps-label px-1.5 py-0.5 rounded text-[9px]" style={{ backgroundColor: `${voice.color}22`, color: voice.color }}>
               DEFAULT
             </span>
           )}
@@ -65,10 +107,15 @@ export default function VoiceCard({ voice, isDefault, assignedTopics, selected, 
         )}
       </div>
       <div
-        className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all-200 hover:opacity-80"
-        style={{ backgroundColor: `${voice.color}30` }}
+        onClick={handlePlay}
+        className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all-200 hover:opacity-80 cursor-pointer"
+        style={{ backgroundColor: playing ? `${voice.color}50` : `${voice.color}30` }}
       >
-        <Play size={14} strokeWidth={1.5} fill={voice.color} style={{ color: voice.color }} />
+        {playing ? (
+          <Pause size={14} strokeWidth={1.5} fill={voice.color} style={{ color: voice.color }} />
+        ) : (
+          <Play size={14} strokeWidth={1.5} fill={voice.color} style={{ color: voice.color }} />
+        )}
       </div>
     </button>
   )

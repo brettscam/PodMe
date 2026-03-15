@@ -58,6 +58,7 @@ export default function App() {
           <Dashboard
             profile={profile}
             topics={topics}
+            episode={currentEpisode}
             onNavigate={setCurrentView}
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}

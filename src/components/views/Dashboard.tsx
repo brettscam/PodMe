@@ -1,20 +1,22 @@
 import { useState } from 'react'
 import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb, Eye } from 'lucide-react'
-import type { UserProfile, UserTopic, ViewName, KnowledgeBlock } from '../../lib/types'
+import type { UserProfile, UserTopic, ViewName, KnowledgeBlock, Episode } from '../../lib/types'
 import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG, KNOWLEDGE_BLOCKS } from '../../lib/constants'
 import TopicChip from '../ui/TopicChip'
 import ToggleSwitch from '../ui/ToggleSwitch'
+import MiniPlayer from '../ui/MiniPlayer'
 
 interface DashboardProps {
   profile: UserProfile
   topics: UserTopic[]
+  episode: Episode
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
   onPreviewEmail?: () => void
 }
 
-export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const [knowledgeBlock] = useState<KnowledgeBlock>(() => KNOWLEDGE_BLOCKS[Math.floor(Math.random() * KNOWLEDGE_BLOCKS.length)])
 
@@ -27,6 +29,9 @@ export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeC
 
   return (
     <div className="space-y-4">
+      {/* Player — front and center */}
+      <MiniPlayer episode={episode} onViewEpisode={() => onNavigate('episode')} />
+
       {/* Next Episode Card */}
       <div
         className="rounded-card p-5"
