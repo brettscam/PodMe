@@ -5,6 +5,7 @@ import { useProfile } from './hooks/useProfile'
 import { useTopics } from './hooks/useTopics'
 import { useEpisodes } from './hooks/useEpisodes'
 import { useShare } from './hooks/useShare'
+import { useGenerate } from './hooks/useGenerate'
 import GlowOrbs from './components/layout/GlowOrbs'
 import TopBar from './components/layout/TopBar'
 import BottomNav from './components/layout/BottomNav'
@@ -25,6 +26,7 @@ export default function App() {
   const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
   const { currentEpisode, pastEpisodes } = useEpisodes()
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
+  const { progress: genProgress, generateEpisode } = useGenerate()
 
   // Show loading with Audio Pulse animation
   if (authLoading) {
@@ -112,6 +114,8 @@ export default function App() {
             getShareUrl={getShareUrl}
             onCopy={copyShareLink}
             onShare={nativeShare}
+            generationProgress={genProgress}
+            onGenerate={() => generateEpisode(currentEpisode.segments)}
           />
         )
     }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight, Volume2, VolumeX } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight, Volume2, VolumeX, Zap } from 'lucide-react'
 import type { Episode } from '../../lib/types'
 import { formatSeconds } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
@@ -14,6 +14,15 @@ function TierDot({ tier }: { tier: number }) {
   return <div className="flex-shrink-0 w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
 }
 
+interface GenerationProgress {
+  status: 'idle' | 'generating' | 'complete' | 'error'
+  currentSegment: number
+  totalSegments: number
+  segmentName: string
+  audioUrls: string[]
+  error?: string
+}
+
 interface EpisodePreviewProps {
   episode: Episode
   pastEpisodes: Episode[]
@@ -24,11 +33,14 @@ interface EpisodePreviewProps {
   getShareUrl: (token?: string) => string
   onCopy: () => void
   onShare: (title: string) => void
+  generationProgress?: GenerationProgress
+  onGenerate?: () => void
 }
 
 export default function EpisodePreview({
   episode, pastEpisodes, shareToken, copied, listenCount,
   onGenerateShare, getShareUrl, onCopy, onShare,
+  generationProgress, onGenerate,
 }: EpisodePreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -157,6 +169,67 @@ export default function EpisodePreview({
           </button>
         )}
       </div>
+
+      {/* Generate Episode Button */}
+      {onGenerate && (!generationProgress || generationProgress.status === 'idle') && (
+        <button
+          onClick={onGenerate}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-card transition-all-200"
+          style={{
+            background: 'linear-gradient(135deg, #FF6B35, #CC4E1F)',
+            border: 'none',
+          }}
+        >
+          <Zap size={18} strokeWidth={1.5} style={{ color: 'white' }} />
+          <span className="text-sm font-bold text-white">Generate Episode Audio</span>
+        </button>
+      )}
+
+      {/* Generation Progress */}
+      {generationProgress && generationProgress.status === 'generating' && (
+        <div
+          className="rounded-card p-5"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-end gap-0.5 h-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="wave-bar" style={{ width: 3, height: 16 }} />
+              ))}
+            </div>
+            <span className="caps-label text-[10px]" style={{ color: 'var(--accent-pulse)' }}>GENERATING</span>
+          </div>
+          <p className="text-sm font-semibold text-white">
+            {generationProgress.segmentName}
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            Segment {generationProgress.currentSegment} of {generationProgress.totalSegments}
+          </p>
+          <div className="w-full h-1.5 rounded-full mt-3" style={{ backgroundColor: 'rgba(148,163,184,0.15)' }}>
+            <div
+              className="h-1.5 rounded-full transition-all"
+              style={{
+                width: `${(generationProgress.currentSegment / generationProgress.totalSegments) * 100}%`,
+                background: 'linear-gradient(90deg, var(--accent-pulse), var(--accent-signal))',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {generationProgress && generationProgress.status === 'error' && (
+        <div
+          className="rounded-card p-4 flex items-center gap-3"
+          style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
+        >
+          <p className="text-xs text-white">{generationProgress.error || 'Generation failed'}</p>
+          {onGenerate && (
+            <button onClick={onGenerate} className="text-xs font-semibold" style={{ color: 'var(--accent-pulse)' }}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Timeline */}
       <div

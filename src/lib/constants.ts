@@ -19,6 +19,9 @@ export const TOPIC_CATALOG: TopicDefinition[] = [
 ]
 
 export const BASE_VOICES: VoiceDefinition[] = [
+  { id: 'southern-gentleman', name: 'The Southern Gentleman', desc: 'Warm, charming, authoritative drawl', color: '#FF6B35', icon: Radio, tier: 'free' },
+  { id: 'scottish-mentor', name: 'The Scottish Mentor', desc: 'Wise, steady, measured guidance', color: '#2563EB', icon: GraduationCap, tier: 'free' },
+  { id: 'modern-brand-ambassador', name: 'The Brand Voice', desc: 'Polished, confident, contemporary', color: '#10B981', icon: Zap, tier: 'free' },
   { id: 'anchor', name: 'The Anchor', desc: 'Warm, authoritative, NPR-adjacent', color: '#4A90D9', icon: Radio, tier: 'free' },
   { id: 'correspondent', name: 'The Correspondent', desc: 'Crisp, energetic, faster pace', color: '#F4A261', icon: Zap, tier: 'pro' },
   { id: 'analyst', name: 'The Analyst', desc: 'Calm, measured, Bloomberg tone', color: '#2D8A6E', icon: TrendingUp, tier: 'pro' },
