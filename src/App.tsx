@@ -80,10 +80,12 @@ export default function App() {
             topics={topics}
             episode={currentEpisode}
             generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
+            generationStatus={genProgress.status}
             onNavigate={setCurrentView}
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}
             onPreviewEmail={() => setShowEmailPreview(true)}
+            onGenerate={() => generateEpisode(currentEpisode.segments)}
           />
         )
       case 'topics':

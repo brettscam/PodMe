@@ -11,13 +11,15 @@ interface DashboardProps {
   topics: UserTopic[]
   episode: Episode
   generatedAudioUrls?: string[]
+  generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
   onPreviewEmail?: () => void
+  onGenerate?: () => void
 }
 
-export default function Dashboard({ profile, topics, episode, generatedAudioUrls, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const [knowledgeBlock] = useState<KnowledgeBlock>(() => KNOWLEDGE_BLOCKS[Math.floor(Math.random() * KNOWLEDGE_BLOCKS.length)])
 
@@ -31,7 +33,7 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
   return (
     <div className="space-y-4">
       {/* Player — front and center */}
-      <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} onViewEpisode={() => onNavigate('episode')} />
+      <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} generationStatus={generationStatus} onViewEpisode={() => onNavigate('episode')} onGenerate={onGenerate} />
 
       {/* Next Episode Card */}
       <div
@@ -45,7 +47,7 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
           <div>
             <span className="caps-label" style={{ color: 'var(--accent-peach)' }}>NEXT EPISODE</span>
             <h2 className="text-2xl font-bold mt-1 tracking-tight">
-              Tomorrow, {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              Tomorrow, {(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) })()}
             </h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Ready by {profile.delivery_time.replace(/^0/, '')} AM
@@ -117,8 +119,8 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
         }}
       >
         <div>
-          <span className="caps-label text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>PREVIEW</span>
-          <p className="text-sm font-bold text-white mt-0.5">Tomorrow's Episode Lineup</p>
+          <span className="caps-label text-[10px]" style={{ color: 'rgba(255,255,255,0.6)' }}>EPISODE DETAILS</span>
+          <p className="text-sm font-bold text-white mt-0.5">View Full Episode & Show Notes</p>
         </div>
         <ChevronRight size={20} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.5)' }} />
       </button>

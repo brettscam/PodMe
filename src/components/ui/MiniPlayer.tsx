@@ -6,10 +6,12 @@ import { getVoice, formatSeconds } from '../../lib/constants'
 interface MiniPlayerProps {
   episode: Episode
   generatedAudioUrls?: string[]
+  generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
   onViewEpisode: () => void
+  onGenerate?: () => void
 }
 
-export default function MiniPlayer({ episode, generatedAudioUrls, onViewEpisode }: MiniPlayerProps) {
+export default function MiniPlayer({ episode, generatedAudioUrls, generationStatus, onViewEpisode, onGenerate }: MiniPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -327,16 +329,27 @@ export default function MiniPlayer({ episode, generatedAudioUrls, onViewEpisode 
         </div>
       ) : (
         <div className="px-5 py-3">
-          <button
-            onClick={onViewEpisode}
-            className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)',
-              color: 'white',
-            }}
-          >
-            Generate Episode Audio
-          </button>
+          {generationStatus === 'generating' ? (
+            <div className="flex items-center justify-center gap-3 py-3">
+              <div className="flex items-end gap-0.5 h-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="wave-bar" style={{ width: 3, height: 16 }} />
+                ))}
+              </div>
+              <span className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Generating...</span>
+            </div>
+          ) : (
+            <button
+              onClick={onGenerate || onViewEpisode}
+              className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+              style={{
+                background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)',
+                color: 'white',
+              }}
+            >
+              Generate Episode Audio
+            </button>
+          )}
         </div>
       )}
     </div>

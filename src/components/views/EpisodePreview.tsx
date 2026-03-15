@@ -338,25 +338,7 @@ export default function EpisodePreview({
         </div>
       )}
 
-      {/* Timeline */}
-      <div
-        className="rounded-card p-4"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        {activeEpisode.segments.map((segment, i) => (
-          <SegmentRow
-            key={i}
-            segment={segment}
-            isPlaying={currentSegmentIndex === i && isPlaying}
-            isLast={i === activeEpisode.segments.length - 1}
-          />
-        ))}
-      </div>
-
-      {/* Player Bar — only shown when generated audio is available */}
+      {/* Player Bar — shown above segments when generated audio is available */}
       {hasGeneratedAudio && (
         <div
           className="rounded-card p-4"
@@ -462,6 +444,24 @@ export default function EpisodePreview({
           </div>
         </div>
       )}
+
+      {/* Timeline — Segment list */}
+      <div
+        className="rounded-card p-4"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        {activeEpisode.segments.map((segment, i) => (
+          <SegmentRow
+            key={i}
+            segment={segment}
+            isPlaying={currentSegmentIndex === i && isPlaying}
+            isLast={i === activeEpisode.segments.length - 1}
+          />
+        ))}
+      </div>
 
       {/* Share Section */}
       <button

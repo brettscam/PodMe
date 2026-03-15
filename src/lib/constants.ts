@@ -90,6 +90,44 @@ const MOCK_SOURCES: Record<string, SegmentSource[]> = {
 }
 
 export const SAMPLE_EPISODE: Episode = {
+  title: 'Sunday, March 15 — Weekend Digest',
+  date: '2026-03-15',
+  cadence: 'weekly',
+  tone: 'commentary',
+  estimated_minutes: 30,
+  status: 'ready',
+  show_notes: {
+    segments: [
+      { title: 'Week in Markets', sources: MOCK_SOURCES.earnings },
+      { title: 'Apple Glass & AI Act', sources: MOCK_SOURCES.tech },
+      { title: 'Geneva Ceasefire Progress', sources: MOCK_SOURCES.world },
+      { title: 'Bay Area Weekend', sources: MOCK_SOURCES.local },
+      { title: 'The Bear Season 4 Review', sources: MOCK_SOURCES.entertainment },
+      { title: 'Photography Corner', sources: MOCK_SOURCES.creative },
+    ],
+    correction_notes: [],
+    source_summary: {
+      total_articles: 16,
+      total_outlets: 10,
+      tier_1_count: 8,
+      tier_2_count: 6,
+      tier_3_count: 2,
+    },
+  },
+  segments: [
+    { topic_id: null, segment_type: 'cold_open', title: 'Cold Open', voice: 'scottish-mentor', start_time_seconds: 0, duration_seconds: 50, script: 'Good morning, and welcome to your Sunday digest. I\'m glad you\'re here. What a week it was — NVIDIA rewrote the playbook on inference computing, Apple showed us the future with AR glasses, the EU AI Act went live yesterday, and ceasefire talks in Geneva produced actual framework language for the first time. Let\'s take the long view on all of it.', sources: [], sort_order: 0 },
+    { topic_id: 'earnings', segment_type: 'topic', title: 'Week in Markets', voice: 'strategist', start_time_seconds: 50, duration_seconds: 300, script: 'The S&P five hundred finished the week at fifty-three twelve, up one point two percent, with the Nasdaq leading at one point eight percent. NVIDIA was the story of the week — data center revenue hit twenty point two billion, beating consensus by eight hundred million. But the real headline is that inference workloads officially crossed fifty percent of GPU compute. That\'s a structural shift. Adobe followed Thursday with solid numbers, and Oracle\'s Monday print showed cloud infrastructure jumping forty-six percent year-over-year. The rate cut narrative strengthened — Fed funds futures now price seventy-two percent odds of a June cut after Waller\'s speech. Looking ahead, Fed Chair Powell speaks Thursday, and we get housing starts and industrial production data.', sources: MOCK_SOURCES.earnings, sort_order: 1 },
+    { topic_id: 'tech', segment_type: 'topic', title: 'Apple Glass & The AI Act', voice: 'correspondent', start_time_seconds: 350, duration_seconds: 260, script: 'Two massive tech stories this week. Apple unveiled Apple Glass at its surprise spring event — lightweight AR glasses that pair with your iPhone, shipping in June. Early hands-on reports say they\'re surprisingly comfortable and the field of view is wider than expected. This is Apple\'s real play in spatial computing, not the Vision Pro. And as of yesterday, the EU AI Act is officially in enforcement. Companies deploying high-risk AI systems in Europe need compliance documentation filed or face fines up to seven percent of global revenue. Microsoft and Google filed on time. Several others applied for extensions. This is going to reshape how AI gets deployed globally.', sources: MOCK_SOURCES.tech, sort_order: 2 },
+    { topic_id: 'world', segment_type: 'topic', title: 'Geneva Ceasefire Progress', voice: 'anchor', start_time_seconds: 610, duration_seconds: 240, script: 'The ceasefire talks in Geneva made more progress this week than in any previous round. The key breakthrough is a new framework from Turkish and Brazilian mediators that decouples the territorial question from security guarantees. Both sides agreed to discuss it, which alone is significant. Meanwhile, China\'s five hundred billion dollar stimulus package is reshaping expectations for global growth. Unlike previous rounds of Chinese stimulus, this one targets household consumption directly — tax rebates, EV subsidies, and a new child-care allowance. The FT called it Beijing\'s clearest signal that the property-led growth model is finished.', sources: MOCK_SOURCES.world, sort_order: 3 },
+    { topic_id: 'local', segment_type: 'topic', title: 'Bay Area Weekend', voice: 'neighbor', start_time_seconds: 850, duration_seconds: 200, script: 'Happy Sunday, Marin. Hope you made it to the Azalea Hill Loop dedication yesterday — perfect weather for it. The San Rafael farmer\'s market is in full swing at its new year-round schedule, eight AM to one PM today. If you missed the Housing Element vote, the Board of Supervisors passed it Thursday night. And a heads-up for the week ahead — the Richmond-San Rafael Bridge has eastbound lane closures Monday through Wednesday nights for maintenance, nine PM to five AM. Plan accordingly if you\'re commuting.', sources: MOCK_SOURCES.local, sort_order: 4 },
+    { topic_id: 'entertainment', segment_type: 'topic', title: 'The Bear Season 4 Review', voice: 'insider', start_time_seconds: 1050, duration_seconds: 180, script: 'Alright, let\'s talk about The Bear. Season Four dropped Friday on Hulu and I binged all ten episodes. Without spoilers — it\'s the best season yet. The pacing is tighter, the kitchen scenes are more intense, and there\'s a mid-season episode that\'s going to have everyone talking on Monday. If you haven\'t started it yet, clear your afternoon. Also worth noting — Oscar nomination voting closed this week. The ceremony is March thirtieth and the frontrunners are "The Return" and Denis Villeneuve\'s "Meridian."', sources: MOCK_SOURCES.entertainment, sort_order: 5 },
+    { topic_id: 'creative', segment_type: 'topic', title: 'Photography Corner', voice: 'host', start_time_seconds: 1230, duration_seconds: 120, script: 'Quick creative segment for the weekend crowd. The Fujifilm-Hasselblad acquisition rumors heated up — DPReview sources say a deal for the medium format division could close by summer. The new Sigma fifty millimeter f-one-point-two Art lens is getting rave reviews. And if you\'re shooting this weekend, the wildflower bloom on Mount Tam is absolutely peaking right now. Golden hour on Ridgecrest Boulevard has been spectacular. Get out there before the rain comes midweek.', sources: MOCK_SOURCES.creative, sort_order: 6 },
+    { topic_id: null, segment_type: 'wrap_up', title: 'Wrap & Look-Ahead', voice: 'scottish-mentor', start_time_seconds: 1350, duration_seconds: 60, script: 'That\'s your Sunday digest. The week ahead — Fed Chair Powell speaks Thursday, we get housing starts data, EU AI Act enforcement is now live so watch for compliance news, and keep an eye on Apple Glass pre-order rumors. Enjoy the farmer\'s market, finish The Bear, and we\'ll see you Monday morning with a fresh briefing. Have a wonderful Sunday.', sources: [], sort_order: 7 },
+  ],
+}
+
+// Saturday, March 14 — moved from SAMPLE_EPISODE to past
+const SATURDAY_MARCH_14: Episode = {
   title: 'Saturday, March 14 — Morning Brief',
   date: '2026-03-14',
   cadence: 'daily',
@@ -151,6 +189,7 @@ export const DEFAULT_USER_TOPICS = [
 ]
 
 export const PAST_EPISODES: Episode[] = [
+  SATURDAY_MARCH_14,
   // Monday, March 13 — Lead: Oracle earnings beat, Apple spring event tease
   {
     title: 'Monday, March 13 — Morning Brief',
