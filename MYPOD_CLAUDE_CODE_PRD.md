@@ -162,6 +162,111 @@ See the full codebase for implementation of all remaining sections including:
 
 ---
 
+## Future: Visual Companion Layer (Post-MVP)
+
+### Interactive Visuals & Rich Media
+The listening experience will eventually include a **visual companion layer** — supplemental content that appears on-screen while the user listens, synced to the current segment. This is not a replacement for audio; it's an enhancement for users who are watching their screen (morning coffee, desk listening).
+
+**Interactive Charts & Infographics**
+- Earnings segments: live-updating stock charts, revenue breakdowns, analyst estimate comparisons
+- Economy segments: Fed rate visualizations, employment trend lines, housing price maps
+- Science segments: data visualizations, research figure reproductions
+- Sports segments: standings tables, stat comparisons, bracket visualizations
+- Charts should be interactive (hover for data points, tap to expand) using a library like Recharts or D3
+- Data sourced from the same pipeline that generates the script — structured data output alongside narrative
+
+**Embedded Media & External Links**
+- When a source article contains a key image (earnings chart from WSJ, satellite imagery from Reuters), display it inline below the segment
+- Sports highlights: link to video clips (YouTube, ESPN) with thumbnail preview cards
+- Photography/creative segments: inline image galleries from referenced reviews or announcements
+- Each media item shows: thumbnail, source attribution, "View original" link
+- Media cards use the same tier-dot system for source credibility
+
+**Implementation Notes**
+- New `segment_media` jsonb column on `episode_segments`:
+  ```json
+  [
+    {
+      "type": "chart" | "image" | "video" | "infographic",
+      "title": "NVIDIA Revenue by Segment",
+      "url": "https://...",
+      "thumbnail_url": "https://...",
+      "source_outlet": "Wall Street Journal",
+      "source_tier": 1,
+      "chart_data": { ... }  // structured data for interactive charts
+    }
+  ]
+  ```
+- Visual companion is opt-in: toggle in settings ("Show visuals while listening")
+- Visuals auto-advance with audio playback, synced to segment timestamps
+- Offline mode: cache chart data and thumbnails for commute listening
+
+---
+
+## Future: Personal Life Segments (Post-MVP)
+
+### "My Life" — Bespoke Personal Blocks
+Beyond news and knowledge, MyPod can include **personal life segments** that are tailored to the user's life context. These are short, actionable blocks that feel like a thoughtful friend giving you relevant suggestions.
+
+**How It Works**
+- Users add "Life Contexts" in a profile section — structured personal details that inform content:
+  - `Parenting`: child name, age (auto-updates), milestones
+  - `Fitness`: current goals, training schedule
+  - `Learning`: skills being developed, courses in progress
+  - `Home`: projects, seasonal maintenance
+  - `Relationships`: anniversaries, birthdays coming up
+  - `Career`: role, goals, review cycle timing
+
+**Example: Parenting Context**
+A user with a 6-month-old son could receive:
+- "THIS WEEK'S FOCUS" block: developmental milestones for 6-month-olds, new games and activities to try, sensory play ideas, sleep regression tips for this age
+- Content refreshes weekly, age-aware (automatically adjusts as the child grows)
+- Sources from trusted parenting research (AAP, Zero to Three, peer-reviewed developmental psychology)
+- Tone matches the user's episode tone setting — factual parents get research citations, mixed gets "here's what to try", commentary gets "real talk from the trenches"
+
+**Data Model**
+```sql
+create table life_contexts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) on delete cascade,
+  context_type text not null,  -- 'parenting', 'fitness', 'learning', etc.
+  label text not null,         -- "Leo (6 months)", "Marathon training", etc.
+  config jsonb not null,       -- type-specific structured data
+  enabled boolean default true,
+  sort_order integer default 0,
+  created_at timestamptz default now()
+);
+```
+
+**Example config for parenting:**
+```json
+{
+  "child_name": "Leo",
+  "date_of_birth": "2025-09-15",
+  "interests": ["sensory play", "outdoor time", "music"],
+  "frequency": "weekly"
+}
+```
+
+**UI: Life Contexts Section**
+- Accessible from Dashboard or a new "My Life" section
+- Each context is a card with icon, label, and toggle
+- Expanding shows configuration options specific to that context type
+- Preview of what the next episode's personal block will contain
+
+**Episode Integration**
+- Personal blocks appear as a distinct segment type: `segment_type: 'personal'`
+- Positioned after the wrap-up, before the knowledge block — a warm, personal note to end on
+- Uses a dedicated voice (default: "Neighbor" for warmth, user-configurable)
+- Clearly labeled in timeline: "FOR YOU" caps label in peach
+
+**Privacy**
+- Life context data never leaves the user's Supabase row
+- Not included in shared episodes — personal blocks are stripped from shared versions
+- Users can pause any context without deleting it
+
+---
+
 ## Hard Rules
 - ZERO emoji in the UI
 - DM Sans only
