@@ -1,5 +1,6 @@
 import type { UserTopic } from '../../lib/types'
 import { BASE_VOICES, PERSONALITY_PACKS, getTopic } from '../../lib/constants'
+import { useVoicePreviews } from '../../hooks/useVoicePreviews'
 import VoiceCard from '../ui/VoiceCard'
 
 interface VoicesProps {
@@ -9,6 +10,7 @@ interface VoicesProps {
 }
 
 export default function Voices({ defaultVoice, topics, onSetDefaultVoice }: VoicesProps) {
+  const voicePreviews = useVoicePreviews()
   function getAssignedTopics(voiceId: string): string[] {
     return topics
       .filter(t => t.voice_override === voiceId)
@@ -39,6 +41,7 @@ export default function Voices({ defaultVoice, topics, onSetDefaultVoice }: Voic
               isDefault={defaultVoice === voice.id}
               selected={defaultVoice === voice.id}
               assignedTopics={getAssignedTopics(voice.id)}
+              previewUrl={voicePreviews[voice.id]}
               onClick={() => onSetDefaultVoice(voice.id)}
             />
           ))}
@@ -64,6 +67,7 @@ export default function Voices({ defaultVoice, topics, onSetDefaultVoice }: Voic
               isDefault={defaultVoice === voice.id}
               selected={defaultVoice === voice.id}
               assignedTopics={getAssignedTopics(voice.id)}
+              previewUrl={voicePreviews[voice.id]}
               onClick={() => onSetDefaultVoice(voice.id)}
             />
           ))}

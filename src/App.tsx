@@ -61,6 +61,7 @@ export default function App() {
             profile={profile}
             topics={topics}
             episode={currentEpisode}
+            generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
             onNavigate={setCurrentView}
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}

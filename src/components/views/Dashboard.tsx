@@ -10,13 +10,14 @@ interface DashboardProps {
   profile: UserProfile
   topics: UserTopic[]
   episode: Episode
+  generatedAudioUrls?: string[]
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
   onPreviewEmail?: () => void
 }
 
-export default function Dashboard({ profile, topics, episode, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, generatedAudioUrls, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const [knowledgeBlock] = useState<KnowledgeBlock>(() => KNOWLEDGE_BLOCKS[Math.floor(Math.random() * KNOWLEDGE_BLOCKS.length)])
 
@@ -30,7 +31,7 @@ export default function Dashboard({ profile, topics, episode, onNavigate, onDeli
   return (
     <div className="space-y-4">
       {/* Player — front and center */}
-      <MiniPlayer episode={episode} onViewEpisode={() => onNavigate('episode')} />
+      <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} onViewEpisode={() => onNavigate('episode')} />
 
       {/* Next Episode Card */}
       <div
