@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ViewName } from './lib/types'
+import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useTopics } from './hooks/useTopics'
 import { useEpisodes } from './hooks/useEpisodes'
@@ -7,6 +8,7 @@ import { useShare } from './hooks/useShare'
 import GlowOrbs from './components/layout/GlowOrbs'
 import TopBar from './components/layout/TopBar'
 import BottomNav from './components/layout/BottomNav'
+import LoginScreen from './components/views/LoginScreen'
 import Dashboard from './components/views/Dashboard'
 import Topics from './components/views/Topics'
 import Throttles from './components/views/Throttles'
@@ -15,10 +17,33 @@ import EpisodePreview from './components/views/EpisodePreview'
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewName>('home')
-  const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile()
-  const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics()
+  const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth()
+  const userId = user?.id ?? null
+  const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
+  const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
   const { currentEpisode, pastEpisodes } = useEpisodes()
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center">
+        <GlowOrbs />
+        <div className="text-center">
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
+            <span className="text-white">my</span>
+            <span style={{ color: 'var(--accent-peach)' }}>pod</span>
+          </h1>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return <LoginScreen onSignInWithGoogle={signInWithGoogle} />
+  }
 
   function renderView() {
     switch (currentView) {
@@ -90,6 +115,8 @@ export default function App() {
       <TopBar
         currentView={currentView}
         onBack={currentView !== 'home' ? () => setCurrentView('home') : undefined}
+        userName={user.user_metadata?.full_name || user.email || undefined}
+        onSignOut={signOut}
       />
       <main className="relative z-10 w-full max-w-app mx-auto px-5 pt-[72px] pb-[100px]">
         {renderView()}

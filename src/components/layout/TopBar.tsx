@@ -1,4 +1,5 @@
-import { ChevronLeft } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronLeft, LogOut } from 'lucide-react'
 import type { ViewName } from '../../lib/types'
 
 const VIEW_LABELS: Record<ViewName, string> = {
@@ -12,10 +13,13 @@ const VIEW_LABELS: Record<ViewName, string> = {
 interface TopBarProps {
   currentView: ViewName
   onBack?: () => void
+  userName?: string
+  onSignOut?: () => void
 }
 
-export default function TopBar({ currentView, onBack }: TopBarProps) {
+export default function TopBar({ currentView, onBack, userName, onSignOut }: TopBarProps) {
   const showBack = currentView !== 'home'
+  const [showMenu, setShowMenu] = useState(false)
 
   return (
     <div
@@ -37,9 +41,55 @@ export default function TopBar({ currentView, onBack }: TopBarProps) {
           <span style={{ color: 'var(--accent-peach)' }}>pod</span>
         </div>
       </div>
-      <span className="caps-label" style={{ color: 'var(--text-muted)' }}>
-        {VIEW_LABELS[currentView]}
-      </span>
+
+      <div className="flex items-center gap-3">
+        <span className="caps-label" style={{ color: 'var(--text-muted)' }}>
+          {VIEW_LABELS[currentView]}
+        </span>
+        {userName && onSignOut && (
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(prev => !prev)}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+              style={{
+                backgroundColor: 'rgba(244,162,97,0.2)',
+                color: 'var(--accent-peach)',
+              }}
+            >
+              {userName.charAt(0).toUpperCase()}
+            </button>
+            {showMenu && (
+              <>
+                <div className="fixed inset-0" onClick={() => setShowMenu(false)} />
+                <div
+                  className="absolute right-0 top-10 w-48 rounded-xl overflow-hidden shadow-lg"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div className="px-3 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <p className="text-xs font-semibold text-white truncate">{userName}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      onSignOut()
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-left transition-all-200"
+                    style={{ color: 'var(--text-secondary)' }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)' }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  >
+                    <LogOut size={14} strokeWidth={1.5} />
+                    Sign out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
