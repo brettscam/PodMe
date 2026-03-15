@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight } from 'lucide-react'
 import type { Episode } from '../../lib/types'
 import { formatSeconds } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
@@ -12,6 +12,7 @@ function TierDot({ tier }: { tier: number }) {
 
 interface EpisodePreviewProps {
   episode: Episode
+  pastEpisodes: Episode[]
   shareToken: string | null
   copied: boolean
   listenCount: number
@@ -22,24 +23,43 @@ interface EpisodePreviewProps {
 }
 
 export default function EpisodePreview({
-  episode, shareToken, copied, listenCount,
+  episode, pastEpisodes, shareToken, copied, listenCount,
   onGenerateShare, getShareUrl, onCopy, onShare,
 }: EpisodePreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0)
   const [showShareModal, setShowShareModal] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [selectedEpisode, setSelectedEpisode] = useState<Episode | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const totalDuration = episode.segments.reduce((sum, s) => sum + s.duration_seconds, 0)
+  const activeEpisode = selectedEpisode || episode
+  const totalDuration = activeEpisode.segments.reduce((sum, s) => sum + s.duration_seconds, 0)
+
+  const stopPlayback = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+    setIsPlaying(false)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [])
 
   function handlePlayPause() {
-    setIsPlaying(!isPlaying)
-    if (!isPlaying) {
-      // Simulate progress
-      const interval = setInterval(() => {
+    if (isPlaying) {
+      stopPlayback()
+    } else {
+      setIsPlaying(true)
+      intervalRef.current = setInterval(() => {
         setProgress(prev => {
-          if (prev >= 100) { clearInterval(interval); setIsPlaying(false); return 0 }
-          return prev + 0.5
+          if (prev >= 100) {
+            stopPlayback()
+            return 0
+          }
+          return prev + 0.2
         })
       }, 100)
     }
@@ -50,21 +70,32 @@ export default function EpisodePreview({
     setShowShareModal(true)
   }
 
-  const sourceSummary = episode.show_notes?.source_summary
+  const sourceSummary = activeEpisode.show_notes?.source_summary
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <span className="caps-label" style={{ color: 'var(--accent-peach)' }}>EPISODE PREVIEW</span>
-        <h2 className="text-xl font-bold mt-1 tracking-tight">{episode.title.split(' — ')[0]}</h2>
+        <span className="caps-label" style={{ color: 'var(--accent-peach)' }}>
+          {selectedEpisode ? 'PAST EPISODE' : 'EPISODE PREVIEW'}
+        </span>
+        <h2 className="text-xl font-bold mt-1 tracking-tight">{activeEpisode.title.split(' — ')[0]}</h2>
         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {episode.estimated_minutes} min &middot; {episode.tone.charAt(0).toUpperCase() + episode.tone.slice(1)} &middot; {episode.segments.length} segments
+          {activeEpisode.estimated_minutes} min &middot; {activeEpisode.tone.charAt(0).toUpperCase() + activeEpisode.tone.slice(1)} &middot; {activeEpisode.segments.length} segments
         </p>
         {sourceSummary && (
           <p className="text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>
             Sourced from {sourceSummary.total_articles} articles &middot; {sourceSummary.tier_1_count} Tier 1
           </p>
+        )}
+        {selectedEpisode && (
+          <button
+            onClick={() => { setSelectedEpisode(null); stopPlayback(); setProgress(0); setCurrentSegmentIndex(0) }}
+            className="text-xs font-semibold mt-2 transition-all-200"
+            style={{ color: 'var(--accent-blue)' }}
+          >
+            Back to current episode
+          </button>
         )}
       </div>
 
@@ -76,12 +107,12 @@ export default function EpisodePreview({
           border: '1px solid var(--border-subtle)',
         }}
       >
-        {episode.segments.map((segment, i) => (
+        {activeEpisode.segments.map((segment, i) => (
           <SegmentRow
             key={i}
             segment={segment}
             isPlaying={currentSegmentIndex === i && isPlaying}
-            isLast={i === episode.segments.length - 1}
+            isLast={i === activeEpisode.segments.length - 1}
           />
         ))}
       </div>
@@ -96,7 +127,7 @@ export default function EpisodePreview({
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-white">
-            {episode.segments[currentSegmentIndex]?.title}
+            {activeEpisode.segments[currentSegmentIndex]?.title}
           </span>
           <span className="tabular-nums text-[11px]" style={{ color: 'var(--text-muted)' }}>
             {formatSeconds(Math.floor(totalDuration * progress / 100))} / {formatSeconds(totalDuration)}
@@ -136,7 +167,7 @@ export default function EpisodePreview({
             )}
           </button>
           <button
-            onClick={() => setCurrentSegmentIndex(Math.min(episode.segments.length - 1, currentSegmentIndex + 1))}
+            onClick={() => setCurrentSegmentIndex(Math.min(activeEpisode.segments.length - 1, currentSegmentIndex + 1))}
             className="p-2 transition-all-200 hover:opacity-70"
           >
             <SkipForward size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
@@ -166,7 +197,7 @@ export default function EpisodePreview({
       </button>
 
       {/* Show Notes - Sources by Segment */}
-      {episode.show_notes && (
+      {activeEpisode.show_notes && (
         <div
           className="rounded-card p-4"
           style={{
@@ -176,7 +207,7 @@ export default function EpisodePreview({
         >
           <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>SHOW NOTES</span>
           <div className="mt-3 space-y-4">
-            {episode.show_notes.segments.map((seg, i) => (
+            {activeEpisode.show_notes!.segments.map((seg, i) => (
               <div key={i}>
                 <p className="text-xs font-bold text-white mb-1.5">{seg.title}</p>
                 <div className="space-y-0.5">
@@ -250,15 +281,64 @@ export default function EpisodePreview({
         </p>
       </div>
 
+      {/* Past Episodes */}
+      {pastEpisodes.length > 0 && (
+        <div>
+          <span className="caps-label" style={{ color: 'var(--text-muted)' }}>PAST EPISODES</span>
+          <div className="mt-2 space-y-2">
+            {pastEpisodes.map((ep, i) => {
+              const isActive = selectedEpisode?.date === ep.date
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    stopPlayback()
+                    setProgress(0)
+                    setCurrentSegmentIndex(0)
+                    setSelectedEpisode(isActive ? null : ep)
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-card text-left transition-all-200"
+                  style={{
+                    backgroundColor: isActive ? 'rgba(74,144,217,0.12)' : 'var(--bg-card)',
+                    border: `1px solid ${isActive ? 'rgba(74,144,217,0.4)' : 'var(--border-subtle)'}`,
+                  }}
+                >
+                  <div
+                    className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{
+                      backgroundColor: isActive ? 'rgba(74,144,217,0.2)' : 'rgba(255,255,255,0.04)',
+                    }}
+                  >
+                    <Radio size={16} strokeWidth={1.5} style={{ color: isActive ? 'var(--accent-blue)' : 'var(--text-muted)' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold" style={{ color: isActive ? 'var(--accent-blue)' : 'var(--text-primary)' }}>
+                      {ep.title.split(' — ')[0]}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Clock size={10} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+                      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                        {ep.estimated_minutes} min &middot; {ep.segments.length} segments
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight size={14} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Share Modal */}
       {showShareModal && shareToken && (
         <ShareModal
-          episode={episode}
+          episode={activeEpisode}
           shareUrl={getShareUrl(shareToken)}
           copied={copied}
           listenCount={listenCount}
           onCopy={onCopy}
-          onShare={() => onShare(episode.title)}
+          onShare={() => onShare(activeEpisode.title)}
           onClose={() => setShowShareModal(false)}
         />
       )}

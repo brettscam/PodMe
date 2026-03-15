@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, Plus, Pin, PinOff, Star, Minus, Mic, Sparkles, X } from 'lucide-react'
+import { ChevronDown, Plus, Pin, PinOff, Star, Minus, Mic, Sparkles, X, Tag } from 'lucide-react'
 import type { UserTopic, Weight } from '../../lib/types'
 import { ALL_VOICES, getVoice, getTopic } from '../../lib/constants'
 import ToggleSwitch from '../ui/ToggleSwitch'
@@ -16,14 +16,18 @@ interface TopicsProps {
   onTogglePin: (topicId: string) => void
   onSetVoiceOverride: (topicId: string, voiceId: string | null) => void
   onToggleDiscovery: (enabled: boolean) => void
+  onAddCustomTag: (topicId: string, tag: string) => void
+  onRemoveCustomTag: (topicId: string, tag: string) => void
 }
 
 export default function Topics({
   topics, discoveryEnabled, defaultVoice, onAddTopic, onRemoveTopic,
   onSetWeight, onTogglePin, onSetVoiceOverride, onToggleDiscovery,
+  onAddCustomTag, onRemoveCustomTag,
 }: TopicsProps) {
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  const [tagInput, setTagInput] = useState('')
 
   const weights: { value: Weight; label: string; icon: typeof Star }[] = [
     { value: 'featured', label: 'Featured', icon: Star },
@@ -109,6 +113,14 @@ export default function Topics({
                     </span>
                   </span>
                 </div>
+                {ut.custom_tags.length > 0 && (
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <Tag size={9} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      {ut.custom_tags.join(', ')}
+                    </span>
+                  </div>
+                )}
               </div>
               <ChevronDown
                 size={16}
@@ -216,6 +228,75 @@ export default function Topics({
                       </span>
                     ))}
                   </div>
+                </div>
+
+                {/* Custom Tags */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Tag size={12} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
+                    <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>YOUR TAGS</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {ut.custom_tags.map(tag => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium group"
+                        style={{
+                          backgroundColor: `${topicDef.color}15`,
+                          border: `1px solid ${topicDef.color}30`,
+                          color: topicDef.color,
+                        }}
+                      >
+                        {tag}
+                        <button
+                          onClick={() => onRemoveCustomTag(ut.topic_id, tag)}
+                          className="opacity-50 hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} strokeWidth={2} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={expandedTopic === ut.topic_id ? tagInput : ''}
+                      onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && tagInput.trim()) {
+                          onAddCustomTag(ut.topic_id, tagInput.trim())
+                          setTagInput('')
+                        }
+                      }}
+                      placeholder="Add a tag (e.g., Liverpool news)"
+                      className="flex-1 text-xs px-3 py-1.5 rounded-lg outline-none"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.04)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (tagInput.trim()) {
+                          onAddCustomTag(ut.topic_id, tagInput.trim())
+                          setTagInput('')
+                        }
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all-200"
+                      style={{
+                        backgroundColor: `${topicDef.color}20`,
+                        border: `1px solid ${topicDef.color}40`,
+                        color: topicDef.color,
+                      }}
+                    >
+                      <Plus size={12} strokeWidth={1.5} />
+                      Add
+                    </button>
+                  </div>
+                  <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                    Custom tags help personalize your coverage within this topic
+                  </p>
                 </div>
 
                 {/* Remove */}

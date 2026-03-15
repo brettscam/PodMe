@@ -37,6 +37,14 @@ export interface UserProfile {
   cadence: Cadence
   default_voice: string
   discovery_enabled: boolean
+  email_digest: boolean
+}
+
+export interface KnowledgeBlock {
+  type: 'word_of_the_day' | 'fact_of_the_day'
+  title: string
+  content: string
+  source?: string
 }
 
 export interface UserTopic {
@@ -47,6 +55,7 @@ export interface UserTopic {
   pinned: boolean
   voice_override: string | null
   sort_order: number
+  custom_tags: string[]
 }
 
 export interface SegmentSource {

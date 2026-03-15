@@ -15,9 +15,9 @@ import EpisodePreview from './components/views/EpisodePreview'
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewName>('home')
-  const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled } = useProfile()
-  const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride } = useTopics()
-  const { currentEpisode } = useEpisodes()
+  const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile()
+  const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics()
+  const { currentEpisode, pastEpisodes } = useEpisodes()
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
 
   function renderView() {
@@ -29,6 +29,7 @@ export default function App() {
             topics={topics}
             onNavigate={setCurrentView}
             onDeliveryTimeChange={setDeliveryTime}
+            onToggleEmailDigest={setEmailDigest}
           />
         )
       case 'topics':
@@ -43,6 +44,8 @@ export default function App() {
             onTogglePin={togglePin}
             onSetVoiceOverride={setVoiceOverride}
             onToggleDiscovery={setDiscoveryEnabled}
+            onAddCustomTag={addCustomTag}
+            onRemoveCustomTag={removeCustomTag}
           />
         )
       case 'throttles':
@@ -68,6 +71,7 @@ export default function App() {
         return (
           <EpisodePreview
             episode={currentEpisode}
+            pastEpisodes={pastEpisodes}
             shareToken={shareToken}
             copied={copied}
             listenCount={listenCount}

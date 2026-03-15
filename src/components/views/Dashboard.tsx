@@ -1,17 +1,21 @@
-import { Gauge, Clock, Hash, Mic, ChevronRight } from 'lucide-react'
-import type { UserProfile, UserTopic, ViewName } from '../../lib/types'
-import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG } from '../../lib/constants'
+import { useState } from 'react'
+import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb } from 'lucide-react'
+import type { UserProfile, UserTopic, ViewName, KnowledgeBlock } from '../../lib/types'
+import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG, KNOWLEDGE_BLOCKS } from '../../lib/constants'
 import TopicChip from '../ui/TopicChip'
+import ToggleSwitch from '../ui/ToggleSwitch'
 
 interface DashboardProps {
   profile: UserProfile
   topics: UserTopic[]
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
+  onToggleEmailDigest: (enabled: boolean) => void
 }
 
-export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeChange }: DashboardProps) {
+export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeChange, onToggleEmailDigest }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
+  const [knowledgeBlock] = useState<KnowledgeBlock>(() => KNOWLEDGE_BLOCKS[Math.floor(Math.random() * KNOWLEDGE_BLOCKS.length)])
 
   const quickControls = [
     { icon: Gauge, label: 'TONE', value: profile.tone.charAt(0).toUpperCase() + profile.tone.slice(1), view: 'throttles' as ViewName },
@@ -138,6 +142,68 @@ export default function Dashboard({ profile, topics, onNavigate, onDeliveryTimeC
             colorScheme: 'dark',
           }}
         />
+      </div>
+
+      {/* Email Digest Toggle */}
+      <div
+        className="flex items-center justify-between p-4 rounded-card"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <Mail size={18} strokeWidth={1.5} style={{ color: 'var(--accent-blue)' }} />
+          <div>
+            <p className="text-sm font-semibold text-white">Email Digest</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Receive a written summary of your episode via email
+            </p>
+          </div>
+        </div>
+        <ToggleSwitch checked={profile.email_digest} onChange={onToggleEmailDigest} />
+      </div>
+
+      {/* Knowledge Block */}
+      <div
+        className="rounded-card p-5"
+        style={{
+          backgroundColor: knowledgeBlock.type === 'word_of_the_day'
+            ? 'rgba(74,144,217,0.06)'
+            : 'rgba(244,162,97,0.06)',
+          border: `1px solid ${knowledgeBlock.type === 'word_of_the_day'
+            ? 'rgba(74,144,217,0.15)'
+            : 'rgba(244,162,97,0.15)'}`,
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          {knowledgeBlock.type === 'word_of_the_day' ? (
+            <BookOpen size={16} strokeWidth={1.5} style={{ color: 'var(--accent-blue)' }} />
+          ) : (
+            <Lightbulb size={16} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
+          )}
+          <span
+            className="caps-label text-[10px]"
+            style={{
+              color: knowledgeBlock.type === 'word_of_the_day'
+                ? 'var(--accent-blue)'
+                : 'var(--accent-peach)',
+            }}
+          >
+            {knowledgeBlock.type === 'word_of_the_day' ? 'WORD OF THE DAY' : 'FACT OF THE DAY'}
+          </span>
+        </div>
+        <h3 className="text-base font-bold text-white tracking-tight">
+          {knowledgeBlock.title}
+        </h3>
+        <p className="text-xs leading-relaxed mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+          {knowledgeBlock.content}
+        </p>
+        {knowledgeBlock.source && (
+          <p className="text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>
+            Source: {knowledgeBlock.source}
+          </p>
+        )}
       </div>
     </div>
   )

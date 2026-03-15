@@ -3,7 +3,7 @@ import {
   Plane, Clapperboard, Radio, Zap, TrendingUp, Users, Mic, Target, BookOpen,
   Eye, GraduationCap,
 } from 'lucide-react'
-import type { TopicDefinition, VoiceDefinition, Episode, SegmentSource } from './types'
+import type { TopicDefinition, VoiceDefinition, Episode, SegmentSource, KnowledgeBlock } from './types'
 
 export const TOPIC_CATALOG: TopicDefinition[] = [
   { id: 'earnings', label: 'Markets & Earnings', icon: BarChart3, color: '#4A90D9', subs: ['Earnings next week', 'S&P movers', 'IPO pipeline', 'Crypto', 'Sector rotation'] },
@@ -135,15 +135,84 @@ export const DEFAULT_PROFILE = {
   cadence: 'daily' as const,
   default_voice: 'anchor',
   discovery_enabled: true,
+  email_digest: false,
 }
 
 export const DEFAULT_USER_TOPICS = [
-  { id: '1', user_id: 'local-user', topic_id: 'earnings', weight: 'featured' as const, pinned: true, voice_override: 'strategist', sort_order: 0 },
-  { id: '2', user_id: 'local-user', topic_id: 'tech', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 1 },
-  { id: '3', user_id: 'local-user', topic_id: 'world', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 2 },
-  { id: '4', user_id: 'local-user', topic_id: 'local', weight: 'standard' as const, pinned: true, voice_override: 'neighbor', sort_order: 3 },
-  { id: '5', user_id: 'local-user', topic_id: 'creative', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 4 },
-  { id: '6', user_id: 'local-user', topic_id: 'entertainment', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 5 },
+  { id: '1', user_id: 'local-user', topic_id: 'earnings', weight: 'featured' as const, pinned: true, voice_override: 'strategist', sort_order: 0, custom_tags: ['NVIDIA earnings', 'Fed meeting'] },
+  { id: '2', user_id: 'local-user', topic_id: 'tech', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 1, custom_tags: ['Claude updates', 'Apple'] },
+  { id: '3', user_id: 'local-user', topic_id: 'world', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 2, custom_tags: [] },
+  { id: '4', user_id: 'local-user', topic_id: 'local', weight: 'standard' as const, pinned: true, voice_override: 'neighbor', sort_order: 3, custom_tags: ['Marin housing', 'BART'] },
+  { id: '5', user_id: 'local-user', topic_id: 'creative', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 4, custom_tags: [] },
+  { id: '6', user_id: 'local-user', topic_id: 'entertainment', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 5, custom_tags: ['The Bear'] },
+]
+
+export const PAST_EPISODES: Episode[] = [
+  {
+    ...SAMPLE_EPISODE,
+    title: 'Monday, March 13 — Morning Brief',
+    date: '2026-03-13',
+    estimated_minutes: 22,
+    status: 'ready',
+    segments: SAMPLE_EPISODE.segments.slice(0, 7),
+  },
+  {
+    ...SAMPLE_EPISODE,
+    title: 'Sunday, March 12 — Weekend Digest',
+    date: '2026-03-12',
+    cadence: 'weekly',
+    estimated_minutes: 38,
+    status: 'ready',
+  },
+  {
+    ...SAMPLE_EPISODE,
+    title: 'Saturday, March 11 — Morning Brief',
+    date: '2026-03-11',
+    estimated_minutes: 18,
+    status: 'ready',
+    segments: SAMPLE_EPISODE.segments.slice(0, 5),
+  },
+  {
+    ...SAMPLE_EPISODE,
+    title: 'Friday, March 10 — Morning Brief',
+    date: '2026-03-10',
+    estimated_minutes: 27,
+    status: 'ready',
+  },
+  {
+    ...SAMPLE_EPISODE,
+    title: 'Thursday, March 9 — Morning Brief',
+    date: '2026-03-09',
+    estimated_minutes: 24,
+    status: 'ready',
+  },
+]
+
+export const KNOWLEDGE_BLOCKS: KnowledgeBlock[] = [
+  {
+    type: 'word_of_the_day',
+    title: 'Sonder',
+    content: 'The realization that each passerby has a life as vivid and complex as your own, with their own ambitions, friends, routines, worries — an epic story that continues invisibly around you.',
+    source: 'The Dictionary of Obscure Sorrows',
+  },
+  {
+    type: 'fact_of_the_day',
+    title: 'The Overview Effect',
+    content: 'Astronauts who see Earth from space often experience a profound cognitive shift called the "Overview Effect" — a sense of awe and interconnectedness that permanently changes how they think about borders, conflict, and the environment.',
+    source: 'NASA Behavioral Health',
+  },
+  {
+    type: 'word_of_the_day',
+    title: 'Petrichor',
+    content: 'The pleasant, earthy smell produced when rain falls on dry soil. It comes from an oil released by certain plants during dry periods, absorbed by clay-based soils, then released into the air when rain arrives.',
+    source: 'Nature, 1964',
+  },
+  {
+    type: 'fact_of_the_day',
+    title: 'Octopus Intelligence',
+    content: 'Octopuses have three hearts, blue blood, and two-thirds of their neurons are in their arms — meaning each arm can taste, touch, and make decisions independently of the brain.',
+    source: 'Scientific American',
+  },
 ]
 
 export const MOCK_SOURCE_CATALOG: Array<{ domain: string; name: string; tier: 1 | 2 | 3; categories: string[] }> = [

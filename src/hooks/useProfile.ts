@@ -15,6 +15,7 @@ export function useProfile() {
   const setDefaultVoice = useCallback((voice: string) => updateProfile({ default_voice: voice }), [updateProfile])
   const setDeliveryTime = useCallback((time: string) => updateProfile({ delivery_time: time }), [updateProfile])
   const setDiscoveryEnabled = useCallback((enabled: boolean) => updateProfile({ discovery_enabled: enabled }), [updateProfile])
+  const setEmailDigest = useCallback((enabled: boolean) => updateProfile({ email_digest: enabled }), [updateProfile])
 
   return {
     profile,
@@ -25,5 +26,6 @@ export function useProfile() {
     setDefaultVoice,
     setDeliveryTime,
     setDiscoveryEnabled,
+    setEmailDigest,
   }
 }

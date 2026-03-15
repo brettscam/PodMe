@@ -18,6 +18,7 @@ export function useTopics() {
         pinned: false,
         voice_override: null,
         sort_order: prev.length,
+        custom_tags: [],
       }]
     })
   }, [])
@@ -46,6 +47,22 @@ export function useTopics() {
     updateTopic(topicId, { voice_override: voiceId })
   }, [updateTopic])
 
+  const addCustomTag = useCallback((topicId: string, tag: string) => {
+    setTopics(prev => prev.map(t =>
+      t.topic_id === topicId && !t.custom_tags.includes(tag)
+        ? { ...t, custom_tags: [...t.custom_tags, tag] }
+        : t
+    ))
+  }, [])
+
+  const removeCustomTag = useCallback((topicId: string, tag: string) => {
+    setTopics(prev => prev.map(t =>
+      t.topic_id === topicId
+        ? { ...t, custom_tags: t.custom_tags.filter(ct => ct !== tag) }
+        : t
+    ))
+  }, [])
+
   return {
     topics,
     addTopic,
@@ -54,6 +71,8 @@ export function useTopics() {
     setWeight,
     togglePin,
     setVoiceOverride,
+    addCustomTag,
+    removeCustomTag,
     topicCount: topics.length,
   }
 }
