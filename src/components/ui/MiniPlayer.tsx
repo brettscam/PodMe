@@ -163,10 +163,15 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
 
   return (
     <div
-      className="rounded-card overflow-hidden"
+      className={`rounded-card overflow-hidden relative${isPlaying ? ' playback-glow' : ''}`}
       style={{
-        background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)',
-        border: '1px solid var(--border-subtle)',
+        background: isPlaying && voice
+          ? `linear-gradient(135deg, ${voice.color}15 0%, #1E2433 40%, #0F1320 100%)`
+          : 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)',
+        border: isPlaying
+          ? '1px solid rgba(255,107,53,0.25)'
+          : '1px solid var(--border-subtle)',
+        transition: 'background 0.8s ease, border-color 0.5s ease',
       }}
     >
       {audioSrc && (
@@ -310,9 +315,37 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
           </button>
           <button
             onClick={togglePlay}
-            className="w-14 h-14 rounded-full flex items-center justify-center transition-all-200 hover:scale-105 active:scale-95"
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all-200 hover:scale-105 active:scale-95 relative${isPlaying ? ' play-button-pulse' : ''}`}
             style={{ backgroundColor: 'var(--accent-pulse)' }}
           >
+            {/* Progress ring */}
+            {hasGeneratedAudio && (
+              <svg
+                className="absolute inset-0 w-full h-full -rotate-90"
+                viewBox="0 0 56 56"
+              >
+                <circle
+                  cx="28"
+                  cy="28"
+                  r="26"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.15)"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx="28"
+                  cy="28"
+                  r="26"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 26}`}
+                  strokeDashoffset={`${2 * Math.PI * 26 * (1 - displayProgress / 100)}`}
+                  style={{ transition: 'stroke-dashoffset 0.3s linear' }}
+                />
+              </svg>
+            )}
             {isPlaying ? (
               <Pause size={24} strokeWidth={1.5} fill="white" style={{ color: 'white' }} />
             ) : (

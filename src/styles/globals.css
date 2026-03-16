@@ -146,12 +146,36 @@ html, body, #root {
   animation: spinPulse 1s linear infinite;
 }
 
+/* Playback Glow — pulsing border/shadow during playback */
+@keyframes playbackGlow {
+  0%   { box-shadow: 0 0 8px rgba(255,107,53,0.3), 0 0 20px rgba(255,107,53,0.1); }
+  50%  { box-shadow: 0 0 16px rgba(255,107,53,0.5), 0 0 40px rgba(255,107,53,0.2); }
+  100% { box-shadow: 0 0 8px rgba(255,107,53,0.3), 0 0 20px rgba(255,107,53,0.1); }
+}
+
+.playback-glow {
+  animation: playbackGlow 2s ease-in-out infinite;
+}
+
+/* Play Button Pulse — subtle scale pulse on play button */
+@keyframes buttonPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,107,53,0.4); }
+  70%  { box-shadow: 0 0 0 12px rgba(255,107,53,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,107,53,0); }
+}
+
+.play-button-pulse {
+  animation: buttonPulse 2s ease-out infinite;
+}
+
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .wave-bar,
   .bounce-dot,
   .segment-reveal,
-  .spin-ring {
+  .spin-ring,
+  .playback-glow,
+  .play-button-pulse {
     animation: none;
   }
 }
