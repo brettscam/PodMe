@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight, Volume2, VolumeX, Zap } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight, Volume2, VolumeX, Zap, RefreshCw } from 'lucide-react'
 import type { Episode } from '../../lib/types'
 import { formatSeconds, getVoice } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
@@ -32,12 +32,13 @@ interface EpisodePreviewProps {
   generationProgress?: GenerationProgress
   generatedAudioUrls?: string[]
   onGenerate?: () => void
+  onRegenerate?: () => void
 }
 
 export default function EpisodePreview({
   episode, pastEpisodes, shareToken, copied, listenCount,
   onGenerateShare, getShareUrl, onCopy, onShare,
-  generationProgress, generatedAudioUrls, onGenerate,
+  generationProgress, generatedAudioUrls, onGenerate, onRegenerate,
 }: EpisodePreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -271,6 +272,27 @@ export default function EpisodePreview({
         >
           <Zap size={18} strokeWidth={1.5} style={{ color: 'white' }} />
           <span className="text-sm font-bold text-white">Generate Episode Audio</span>
+        </button>
+      )}
+
+      {/* Regenerate Button — shown when audio already exists */}
+      {onRegenerate && generatedAudioUrls && generatedAudioUrls.length > 0 && (
+        <button
+          onClick={onRegenerate}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-card transition-all-200"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--border-hover)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border-subtle)'
+          }}
+        >
+          <RefreshCw size={16} strokeWidth={1.5} style={{ color: 'var(--accent-pulse)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Regenerate Episode</span>
         </button>
       )}
 

@@ -36,7 +36,12 @@ export default function App() {
   const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
   const { currentEpisode, pastEpisodes } = useEpisodes()
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
-  const { progress: genProgress, generateEpisode } = useGenerate()
+  const { progress: genProgress, generateEpisode, reset: resetGeneration } = useGenerate()
+
+  const handleRegenerate = useCallback(() => {
+    resetGeneration()
+    generateEpisode(currentEpisode.segments)
+  }, [resetGeneration, generateEpisode, currentEpisode.segments])
 
   const toggleLifeContext = useCallback((id: string, enabled: boolean) => {
     setLifeContexts(prev => prev.map(c => c.type === id ? { ...c, enabled } : c))
@@ -86,6 +91,7 @@ export default function App() {
             onToggleEmailDigest={setEmailDigest}
             onPreviewEmail={() => setShowEmailPreview(true)}
             onGenerate={() => generateEpisode(currentEpisode.segments)}
+            onRegenerate={handleRegenerate}
           />
         )
       case 'topics':
@@ -138,6 +144,7 @@ export default function App() {
             generationProgress={genProgress}
             generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
             onGenerate={() => generateEpisode(currentEpisode.segments)}
+            onRegenerate={handleRegenerate}
           />
         )
       case 'profile':

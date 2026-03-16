@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, SkipForward, SkipBack, ChevronRight } from 'lucide-react'
+import { Play, Pause, SkipForward, SkipBack, ChevronRight, RefreshCw } from 'lucide-react'
 import type { Episode } from '../../lib/types'
 import { getVoice, formatSeconds } from '../../lib/constants'
 
@@ -9,9 +9,10 @@ interface MiniPlayerProps {
   generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
   onViewEpisode: () => void
   onGenerate?: () => void
+  onRegenerate?: () => void
 }
 
-export default function MiniPlayer({ episode, generatedAudioUrls, generationStatus, onViewEpisode, onGenerate }: MiniPlayerProps) {
+export default function MiniPlayer({ episode, generatedAudioUrls, generationStatus, onViewEpisode, onGenerate, onRegenerate }: MiniPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -305,7 +306,7 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
 
       {/* Transport Controls */}
       {hasGeneratedAudio ? (
-        <div className="flex items-center justify-center gap-4 py-3">
+        <div className="flex items-center justify-center gap-4 py-3 relative">
           <button
             onClick={() => skip(-15)}
             className="flex flex-col items-center gap-0.5 p-2 transition-all-200 hover:opacity-70 active:scale-95"
@@ -359,6 +360,15 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
             <SkipForward size={20} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
             <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>15s</span>
           </button>
+          {onRegenerate && hasGeneratedAudio && (
+            <button
+              onClick={onRegenerate}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all-200 hover:bg-white/10"
+              title="Regenerate episode"
+            >
+              <RefreshCw size={16} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
+            </button>
+          )}
         </div>
       ) : (
         <div className="px-5 py-3">
