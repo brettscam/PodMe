@@ -93,6 +93,7 @@ html, body, #root {
   border-radius: 2px;
   background: var(--accent-pulse);
   animation: pulseWave 1.2s ease-in-out infinite;
+  transform-origin: bottom;
 }
 
 .wave-bar:nth-child(1) { animation-delay: 0s; }
