@@ -35,6 +35,60 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
       {/* Player — front and center */}
       <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} generationStatus={generationStatus} onViewEpisode={() => onNavigate('episode')} onGenerate={onGenerate} />
 
+      {/* Knowledge Block — personalized to user topics */}
+      <div
+        className="rounded-card p-5"
+        style={{
+          backgroundColor: knowledgeBlock.type === 'word_of_the_day'
+            ? 'rgba(74,144,217,0.06)'
+            : knowledgeBlock.type === 'quote_of_the_day'
+              ? 'rgba(147,51,234,0.06)'
+              : 'rgba(244,162,97,0.06)',
+          border: `1px solid ${knowledgeBlock.type === 'word_of_the_day'
+            ? 'rgba(74,144,217,0.15)'
+            : knowledgeBlock.type === 'quote_of_the_day'
+              ? 'rgba(147,51,234,0.15)'
+              : 'rgba(244,162,97,0.15)'}`,
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          {knowledgeBlock.type === 'word_of_the_day' ? (
+            <BookOpen size={16} strokeWidth={1.5} style={{ color: 'var(--accent-blue)' }} />
+          ) : knowledgeBlock.type === 'quote_of_the_day' ? (
+            <MessageSquareQuote size={16} strokeWidth={1.5} style={{ color: '#9333EA' }} />
+          ) : (
+            <Lightbulb size={16} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
+          )}
+          <span
+            className="caps-label text-[10px]"
+            style={{
+              color: knowledgeBlock.type === 'word_of_the_day'
+                ? 'var(--accent-blue)'
+                : knowledgeBlock.type === 'quote_of_the_day'
+                  ? '#9333EA'
+                  : 'var(--accent-peach)',
+            }}
+          >
+            {knowledgeBlock.type === 'word_of_the_day'
+              ? 'WORD OF THE DAY'
+              : knowledgeBlock.type === 'quote_of_the_day'
+                ? 'QUOTE OF THE DAY'
+                : 'FACT OF THE DAY'}
+          </span>
+        </div>
+        <h3 className="text-base font-bold text-white tracking-tight">
+          {knowledgeBlock.title}
+        </h3>
+        <p className="text-xs leading-relaxed mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+          {knowledgeBlock.content}
+        </p>
+        {knowledgeBlock.source && (
+          <p className="text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>
+            Source: {knowledgeBlock.source}
+          </p>
+        )}
+      </div>
+
       {/* Next Episode Card */}
       <div
         className="rounded-card p-5"
@@ -202,47 +256,6 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
         </button>
       )}
 
-      {/* Knowledge Block */}
-      <div
-        className="rounded-card p-5"
-        style={{
-          backgroundColor: knowledgeBlock.type === 'word_of_the_day'
-            ? 'rgba(74,144,217,0.06)'
-            : 'rgba(244,162,97,0.06)',
-          border: `1px solid ${knowledgeBlock.type === 'word_of_the_day'
-            ? 'rgba(74,144,217,0.15)'
-            : 'rgba(244,162,97,0.15)'}`,
-        }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          {knowledgeBlock.type === 'word_of_the_day' ? (
-            <BookOpen size={16} strokeWidth={1.5} style={{ color: 'var(--accent-blue)' }} />
-          ) : (
-            <Lightbulb size={16} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
-          )}
-          <span
-            className="caps-label text-[10px]"
-            style={{
-              color: knowledgeBlock.type === 'word_of_the_day'
-                ? 'var(--accent-blue)'
-                : 'var(--accent-peach)',
-            }}
-          >
-            {knowledgeBlock.type === 'word_of_the_day' ? 'WORD OF THE DAY' : 'FACT OF THE DAY'}
-          </span>
-        </div>
-        <h3 className="text-base font-bold text-white tracking-tight">
-          {knowledgeBlock.title}
-        </h3>
-        <p className="text-xs leading-relaxed mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-          {knowledgeBlock.content}
-        </p>
-        {knowledgeBlock.source && (
-          <p className="text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>
-            Source: {knowledgeBlock.source}
-          </p>
-        )}
-      </div>
     </div>
   )
 }
