@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getVoice, getTopic, estimateMinutes, formatSeconds, TOPIC_CATALOG, ALL_VOICES } from '../constants'
+import { getVoice, getTopic, estimateMinutes, formatSeconds, TOPIC_CATALOG, ALL_VOICES, getPersonalizedKnowledgeBlock, KNOWLEDGE_BLOCKS } from '../constants'
 
 describe('getVoice', () => {
   it('returns the correct voice by id', () => {
@@ -110,5 +110,25 @@ describe('ALL_VOICES', () => {
   it('has unique voice ids', () => {
     const ids = ALL_VOICES.map(v => v.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('getPersonalizedKnowledgeBlock', () => {
+  it('returns a block matching at least one user topic', () => {
+    const block = getPersonalizedKnowledgeBlock(['tech', 'science'])
+    if (block) {
+      expect(block.topics?.some(t => ['tech', 'science'].includes(t))).toBe(true)
+    }
+  })
+
+  it('falls back to any block when no topics match', () => {
+    const block = getPersonalizedKnowledgeBlock(['nonexistent_topic'])
+    expect(block).toBeDefined()
+    expect(KNOWLEDGE_BLOCKS).toContainEqual(block)
+  })
+
+  it('returns a block when given empty topics', () => {
+    const block = getPersonalizedKnowledgeBlock([])
+    expect(block).toBeDefined()
   })
 })

@@ -347,26 +347,70 @@ export const KNOWLEDGE_BLOCKS: KnowledgeBlock[] = [
     title: 'Sonder',
     content: 'The realization that each passerby has a life as vivid and complex as your own, with their own ambitions, friends, routines, worries — an epic story that continues invisibly around you.',
     source: 'The Dictionary of Obscure Sorrows',
+    topics: ['creative', 'science'],
   },
   {
     type: 'fact_of_the_day',
     title: 'The Overview Effect',
     content: 'Astronauts who see Earth from space often experience a profound cognitive shift called the "Overview Effect" — a sense of awe and interconnectedness that permanently changes how they think about borders, conflict, and the environment.',
     source: 'NASA Behavioral Health',
+    topics: ['science', 'world'],
   },
   {
     type: 'word_of_the_day',
     title: 'Petrichor',
     content: 'The pleasant, earthy smell produced when rain falls on dry soil. It comes from an oil released by certain plants during dry periods, absorbed by clay-based soils, then released into the air when rain arrives.',
     source: 'Nature, 1964',
+    topics: ['science', 'travel'],
   },
   {
     type: 'fact_of_the_day',
     title: 'Octopus Intelligence',
     content: 'Octopuses have three hearts, blue blood, and two-thirds of their neurons are in their arms — meaning each arm can taste, touch, and make decisions independently of the brain.',
     source: 'Scientific American',
+    topics: ['science'],
+  },
+  {
+    type: 'quote_of_the_day',
+    title: '"The best way to predict the future is to invent it."',
+    content: 'Alan Kay, computer scientist and Turing Award winner, coined this phrase during a 1971 meeting at Xerox PARC. It became the guiding philosophy behind the personal computer revolution.',
+    source: 'Alan Kay, 1971',
+    topics: ['tech', 'business'],
+  },
+  {
+    type: 'fact_of_the_day',
+    title: 'Market Opening Bell',
+    content: 'The NYSE opening bell tradition dates to the 1870s when a Chinese gong was used. Today, guest bell-ringers range from CEOs to astronauts to Sesame Street characters.',
+    source: 'NYSE Historical Archives',
+    topics: ['earnings', 'business'],
+  },
+  {
+    type: 'quote_of_the_day',
+    title: '"Sport has the power to change the world."',
+    content: 'Nelson Mandela delivered this line at the inaugural Laureus World Sports Awards in 2000, arguing that sport can create hope, break down barriers, and be more powerful than governments.',
+    source: 'Nelson Mandela, 2000',
+    topics: ['sports'],
+  },
+  {
+    type: 'fact_of_the_day',
+    title: 'The Kuleshov Effect',
+    content: 'In the 1920s, filmmaker Lev Kuleshov demonstrated that the same shot of a man\'s face, when edited next to different images, made audiences perceive different emotions — proof that editing creates meaning.',
+    source: 'Film Theory',
+    topics: ['entertainment', 'creative'],
   },
 ]
+
+export function getPersonalizedKnowledgeBlock(userTopicIds: string[]): KnowledgeBlock {
+  if (userTopicIds.length > 0) {
+    const matched = KNOWLEDGE_BLOCKS.filter(
+      b => b.topics?.some(t => userTopicIds.includes(t))
+    )
+    if (matched.length > 0) {
+      return matched[Math.floor(Math.random() * matched.length)]
+    }
+  }
+  return KNOWLEDGE_BLOCKS[Math.floor(Math.random() * KNOWLEDGE_BLOCKS.length)]
+}
 
 export const MOCK_SOURCE_CATALOG: Array<{ domain: string; name: string; tier: 1 | 2 | 3; categories: string[] }> = [
   { domain: 'reuters.com', name: 'Reuters', tier: 1, categories: ['world', 'business', 'tech'] },

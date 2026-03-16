@@ -49,10 +49,11 @@ export interface UserProfile {
 }
 
 export interface KnowledgeBlock {
-  type: 'word_of_the_day' | 'fact_of_the_day'
+  type: 'word_of_the_day' | 'fact_of_the_day' | 'quote_of_the_day'
   title: string
   content: string
   source?: string
+  topics?: string[]
 }
 
 export interface UserTopic {
