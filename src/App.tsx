@@ -53,8 +53,8 @@ export default function App() {
         <GlowOrbs />
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight mb-4">
-            <span className="text-white">puck</span>
-            <span style={{ color: 'var(--accent-pulse)' }}>puck</span>
+            <span className="text-white">Pod</span>
+            <span style={{ color: 'var(--accent-pulse)' }}>Me</span>
           </h1>
           <div className="flex items-end justify-center gap-1 h-8">
             {[...Array(7)].map((_, i) => (
