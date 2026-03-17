@@ -8,6 +8,9 @@
     },
     "api/list-voices.ts": {
       "maxDuration": 15
+    },
+    "api/build-episode.ts": {
+      "maxDuration": 120
     }
   },
   "rewrites": [

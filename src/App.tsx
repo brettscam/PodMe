@@ -3,7 +3,7 @@ import type { ViewName, LifeContext } from './lib/types'
 import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useTopics } from './hooks/useTopics'
-import { useEpisodes } from './hooks/useEpisodes'
+import { useEpisodeBuilder } from './hooks/useEpisodeBuilder'
 import { useShare } from './hooks/useShare'
 import { useGenerate } from './hooks/useGenerate'
 import GlowOrbs from './components/layout/GlowOrbs'
@@ -34,7 +34,7 @@ export default function App() {
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
   const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
-  const { currentEpisode, pastEpisodes } = useEpisodes(topics, profile.default_voice)
+  const { currentEpisode, pastEpisodes } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode, reset: resetGeneration } = useGenerate()
 

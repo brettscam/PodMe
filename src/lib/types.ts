@@ -133,3 +133,40 @@ export interface SourceDefinition {
   categories: string[]
   bias_label?: string
 }
+
+/** Row from topic_content table — one per topic per day */
+export interface TopicContent {
+  id: string
+  topic_id: string
+  fetch_date: string
+  title: string
+  claims: string[]
+  sources: SegmentSource[]
+  content_hash: string
+  created_at: string
+}
+
+/** Row from generated_scripts table — cached LLM output */
+export interface GeneratedScript {
+  id: string
+  content_hash: string
+  tone: Tone
+  length: Length
+  script: string
+  voice_suggestion: string | null
+  duration_seconds: number
+  model_used: string | null
+  prompt_tokens: number | null
+  completion_tokens: number | null
+  created_at: string
+}
+
+/** Response from /api/build-episode */
+export interface BuildEpisodeResponse {
+  episode: Episode
+  cache_stats: {
+    hits: number
+    misses: number
+    fallbacks: number
+  }
+}
