@@ -62,6 +62,40 @@ export function formatSeconds(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+/** Return a Date offset by `daysAgo` from today (0 = today, 1 = yesterday, etc.) */
+function daysAgo(n: number): Date {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d
+}
+
+/** Format a Date as 'YYYY-MM-DD' */
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+/** Format a Date as 'Wednesday, March 17' */
+function toEpisodeTitle(d: Date, suffix: string): string {
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'long' })
+  const month = d.toLocaleDateString('en-US', { month: 'long' })
+  const day = d.getDate()
+  return `${dayName}, ${month} ${day} — ${suffix}`
+}
+
+/** Is a given Date on a Sunday? */
+function isSunday(d: Date): boolean {
+  return d.getDay() === 0
+}
+
+/** Is a given Date on a Saturday? */
+function isSaturday(d: Date): boolean {
+  return d.getDay() === 6
+}
+
+function isWeekend(d: Date): boolean {
+  return isSaturday(d) || isSunday(d)
+}
+
 const MOCK_SOURCES: Record<string, SegmentSource[]> = {
   earnings: [
     { outlet: 'Wall Street Journal', domain: 'wsj.com', tier: 1, title: 'NVIDIA Reports Record Data Center Revenue', url: 'https://wsj.com/articles/nvidia-earnings', published_at: '2026-03-13T22:00:00Z', cited_claims: ['data center revenue hit $18.4B', 'exceeded analyst estimates by 4%'] },
@@ -89,12 +123,15 @@ const MOCK_SOURCES: Record<string, SegmentSource[]> = {
   ],
 }
 
+const today = daysAgo(0)
+const todaySuffix = isWeekend(today) ? 'Weekend Digest' : 'Morning Brief'
+
 export const SAMPLE_EPISODE: Episode = {
-  title: 'Sunday, March 15 — Weekend Digest',
-  date: '2026-03-15',
-  cadence: 'weekly',
-  tone: 'commentary',
-  estimated_minutes: 30,
+  title: toEpisodeTitle(today, todaySuffix),
+  date: toISODate(today),
+  cadence: isWeekend(today) ? 'weekly' : 'daily',
+  tone: isSunday(today) ? 'commentary' : 'mixed',
+  estimated_minutes: isWeekend(today) ? 30 : 25,
   status: 'ready',
   show_notes: {
     segments: [
@@ -126,11 +163,12 @@ export const SAMPLE_EPISODE: Episode = {
   ],
 }
 
-// Saturday, March 14 — moved from SAMPLE_EPISODE to past
-const SATURDAY_MARCH_14: Episode = {
-  title: 'Saturday, March 14 — Morning Brief',
-  date: '2026-03-14',
-  cadence: 'daily',
+const day1 = daysAgo(1)
+const day1Suffix = isWeekend(day1) ? 'Weekend Digest' : 'Morning Brief'
+const PAST_EPISODE_1: Episode = {
+  title: toEpisodeTitle(day1, day1Suffix),
+  date: toISODate(day1),
+  cadence: isWeekend(day1) ? 'weekly' : 'daily',
   tone: 'mixed',
   estimated_minutes: 25,
   status: 'ready',
@@ -188,13 +226,15 @@ export const DEFAULT_USER_TOPICS = [
   { id: '6', user_id: 'local-user', topic_id: 'entertainment', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 5, custom_tags: ['The Bear'] },
 ]
 
+const day2 = daysAgo(2)
+const day2Suffix = isWeekend(day2) ? 'Weekend Digest' : 'Morning Brief'
+
 export const PAST_EPISODES: Episode[] = [
-  SATURDAY_MARCH_14,
-  // Monday, March 13 — Lead: Oracle earnings beat, Apple spring event tease
+  PAST_EPISODE_1,
   {
-    title: 'Monday, March 13 — Morning Brief',
-    date: '2026-03-13',
-    cadence: 'daily',
+    title: toEpisodeTitle(day2, day2Suffix),
+    date: toISODate(day2),
+    cadence: isWeekend(day2) ? 'weekly' : 'daily',
     tone: 'mixed',
     estimated_minutes: 22,
     status: 'ready',
@@ -219,11 +259,10 @@ export const PAST_EPISODES: Episode[] = [
       { topic_id: null, segment_type: 'wrap_up', title: 'Wrap & Look-Ahead', voice: 'southern-gentleman', start_time_seconds: 1020, duration_seconds: 50, script: 'That\'s your Monday, folks. Keep an eye on Apple\'s event tomorrow — we\'ll have full coverage Wednesday morning. NVIDIA earnings drop Wednesday after the bell. And the Marin County housing vote is Tuesday evening at six. Y\'all have a great start to the week.', sources: [], sort_order: 6 },
     ],
   },
-  // Sunday, March 12 — Weekend Digest: deeper format, more segments, weekly cadence
   {
-    title: 'Sunday, March 12 — Weekend Digest',
-    date: '2026-03-12',
-    cadence: 'weekly',
+    title: toEpisodeTitle(daysAgo(3), isWeekend(daysAgo(3)) ? 'Weekend Digest' : 'Morning Brief'),
+    date: toISODate(daysAgo(3)),
+    cadence: isWeekend(daysAgo(3)) ? 'weekly' : 'daily',
     tone: 'commentary',
     estimated_minutes: 35,
     status: 'ready',
@@ -252,11 +291,10 @@ export const PAST_EPISODES: Episode[] = [
       { topic_id: null, segment_type: 'wrap_up', title: 'Wrap & Look-Ahead', voice: 'scottish-mentor', start_time_seconds: 1580, duration_seconds: 60, script: 'That\'s your weekend digest. The week ahead is packed — Apple\'s rumored event, NVIDIA and Adobe earnings, the start of EU AI Act enforcement, and the Marin housing vote Tuesday evening. Take a breath, enjoy the farmers market, and we\'ll see you Monday morning. Have a wonderful Sunday.', sources: [], sort_order: 8 },
     ],
   },
-  // Saturday, March 11 — Lighter weekend edition, sports + travel focus
   {
-    title: 'Saturday, March 11 — Morning Brief',
-    date: '2026-03-11',
-    cadence: 'daily',
+    title: toEpisodeTitle(daysAgo(4), isWeekend(daysAgo(4)) ? 'Weekend Digest' : 'Morning Brief'),
+    date: toISODate(daysAgo(4)),
+    cadence: isWeekend(daysAgo(4)) ? 'weekly' : 'daily',
     tone: 'mixed',
     estimated_minutes: 18,
     status: 'ready',
@@ -279,11 +317,10 @@ export const PAST_EPISODES: Episode[] = [
       { topic_id: null, segment_type: 'wrap_up', title: 'Wrap', voice: 'anchor', start_time_seconds: 785, duration_seconds: 40, script: 'That\'s your Saturday morning. Enjoy the sunshine, watch Selection Sunday tomorrow, and we\'ll be back with the full weekend digest. Have a great day.', sources: [], sort_order: 5 },
     ],
   },
-  // Friday, March 10 — Lead: Fed rate signal, China stimulus, Warriors
   {
-    title: 'Friday, March 10 — Morning Brief',
-    date: '2026-03-10',
-    cadence: 'daily',
+    title: toEpisodeTitle(daysAgo(5), isWeekend(daysAgo(5)) ? 'Weekend Digest' : 'Morning Brief'),
+    date: toISODate(daysAgo(5)),
+    cadence: isWeekend(daysAgo(5)) ? 'weekly' : 'daily',
     tone: 'factual',
     estimated_minutes: 27,
     status: 'ready',
@@ -310,11 +347,10 @@ export const PAST_EPISODES: Episode[] = [
       { topic_id: null, segment_type: 'wrap_up', title: 'Wrap & Weekend Preview', voice: 'southern-gentleman', start_time_seconds: 1245, duration_seconds: 55, script: 'That wraps your Friday briefing. This weekend — Selection Sunday for March Madness, the San Rafael farmers market goes year-round starting Sunday, and the wildflower bloom on Mount Tam is peaking. Next week is huge — Apple\'s expected event, NVIDIA and Adobe earnings, and the Marin housing vote Tuesday night. Enjoy the weekend, and we\'ll see you Saturday morning.', sources: [], sort_order: 7 },
     ],
   },
-  // Thursday, March 9 — Lead: Anthropic Claude 4.5, EU AI Act, ISRO launch
   {
-    title: 'Thursday, March 9 — Morning Brief',
-    date: '2026-03-09',
-    cadence: 'daily',
+    title: toEpisodeTitle(daysAgo(6), isWeekend(daysAgo(6)) ? 'Weekend Digest' : 'Morning Brief'),
+    date: toISODate(daysAgo(6)),
+    cadence: isWeekend(daysAgo(6)) ? 'weekly' : 'daily',
     tone: 'mixed',
     estimated_minutes: 24,
     status: 'ready',
