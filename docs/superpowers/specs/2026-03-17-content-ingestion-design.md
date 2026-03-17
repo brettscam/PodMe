@@ -36,11 +36,13 @@ Single Anthropic API call:
 
 - **Model:** `claude-haiku-4-5-20251001`
 - **Tool:** `web_search` (Anthropic built-in server tool)
+- **Max tokens:** 2048
 - **Prompt:** Instructs Claude to search for latest news on {label}, focusing on subtopics {subs}, and return structured JSON with:
   - `title`: headline summary for the segment
   - `claims`: array of 3-6 factual claims with attribution
   - `sources`: array of `{ outlet, domain, tier, title, url, published_at, cited_claims[] }`
-- **Output parsing:** Extract the JSON from Claude's response text
+- **Output parsing:** Parse JSON from Claude's response. Validate required fields exist. If parsing fails or fields are missing, return `null` (triggers fallback).
+- **Local topics:** Use the specific label from `FALLBACK_SCRIPTS` title (e.g. "Bay Area & Marin") rather than the generic `TOPIC_CATALOG` label ("Local News") for better search relevance.
 
 ### `hashContent(topicId, fetchDate, claims)`
 
@@ -56,6 +58,14 @@ const TOPIC_META: Record<string, { label: string; subs: string[] }>
 
 This is derived from the existing `TOPIC_CATALOG` but without icon/color fields.
 
+### Concurrency and UPSERT
+
+Use Supabase `.upsert()` with `onConflict: 'topic_id,fetch_date'`. If two users trigger ingestion for the same topic simultaneously, the second write overwrites with identical content — no error, just a wasted API call. Acceptable at this scale.
+
+### Parallel fetch
+
+Fetch content for all missing topics in parallel via `Promise.allSettled`. Each topic that fails falls back independently. This keeps total latency under the Vercel 120s timeout even with 10 topics.
+
 ### Error handling
 
 If `fetchTopicContent` fails (network error, API error, malformed response):
@@ -63,6 +73,10 @@ If `fetchTopicContent` fails (network error, API error, malformed response):
 - `build-episode` falls through to `FALLBACK_SCRIPTS` (existing behavior)
 - Log the error server-side
 - No user-facing error — the episode still generates
+
+### Database access
+
+All INSERT/UPSERT operations use `SUPABASE_SERVICE_ROLE_KEY` which bypasses RLS. The migration only defines SELECT policies for authenticated users. This is intentional — content writes are server-only.
 
 ### Source tier assignment
 
@@ -95,8 +109,23 @@ No new endpoints, hooks, components, or migrations.
 - After first user triggers ingestion, all others get cache hits
 - Estimated daily cost: < $0.10 for 10 topics
 
+### Observability
+
+Add `content_fetches` to the response `cache_stats`:
+
+```ts
+cache_stats: {
+  hits: number       // script cache hits
+  misses: number     // script cache misses (LLM generated)
+  fallbacks: number  // used hardcoded templates
+  content_fetches: number  // web searches triggered this request
+}
+```
+
 ## Constraints
 
 - Anthropic `web_search` tool requires `anthropic-version: 2023-06-01` header (already set)
 - Web search results vary by time — content hash ensures same-day consistency
 - No cron needed — ingestion is lazy/on-demand
+- `today` is UTC (`new Date().toISOString().split('T')[0]`) — content rolls over at midnight UTC
+- Only topics present in `FALLBACK_SCRIPTS` are supported; unknown topic IDs are skipped (existing behavior at line 178)
