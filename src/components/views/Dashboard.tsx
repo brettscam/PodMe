@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb, Eye, MessageSquareQuote } from 'lucide-react'
 import type { UserProfile, UserTopic, ViewName, KnowledgeBlock, Episode } from '../../lib/types'
 import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG, getPersonalizedKnowledgeBlock } from '../../lib/constants'
@@ -22,7 +22,7 @@ interface DashboardProps {
 
 export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
-  const [knowledgeBlock] = useState<KnowledgeBlock>(() => getPersonalizedKnowledgeBlock(topics.map(t => t.topic_id)))
+  const knowledgeBlock = useMemo<KnowledgeBlock>(() => getPersonalizedKnowledgeBlock(topics.map(t => t.topic_id)), [topics])
 
   const quickControls = [
     { icon: Gauge, label: 'TONE', value: profile.tone.charAt(0).toUpperCase() + profile.tone.slice(1), view: 'throttles' as ViewName },

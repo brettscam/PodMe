@@ -7,7 +7,7 @@ export function useProfile(userId: string | null) {
   const [profile, setProfile] = useState<UserProfile>({ ...DEFAULT_PROFILE })
   const [loaded, setLoaded] = useState(false)
 
-  // Load profile from Supabase
+  // Load profile from Supabase — upsert a default row if none exists
   useEffect(() => {
     if (!userId) return
     let cancelled = false
@@ -34,8 +34,29 @@ export function useProfile(userId: string | null) {
           discovery_enabled: data.discovery_enabled ?? true,
           email_digest: data.email_digest ?? false,
         })
+      } else if (error?.code === 'PGRST116' || !data) {
+        // No profile row — create one
+        const newProfile: UserProfile = { ...DEFAULT_PROFILE, id: userId! }
+        const { error: insertError } = await supabase.from('profiles').upsert({
+          id: userId,
+          display_name: newProfile.display_name,
+          timezone: newProfile.timezone,
+          delivery_time: newProfile.delivery_time,
+          tone: newProfile.tone,
+          length: newProfile.length,
+          cadence: newProfile.cadence,
+          default_voice: newProfile.default_voice,
+          discovery_enabled: newProfile.discovery_enabled,
+          email_digest: newProfile.email_digest,
+        })
+        if (insertError) {
+          console.error('Failed to create profile:', insertError.message)
+        }
+        if (!cancelled) {
+          setProfile(newProfile)
+        }
       }
-      setLoaded(true)
+      if (!cancelled) setLoaded(true)
     }
 
     load()
@@ -48,9 +69,11 @@ export function useProfile(userId: string | null) {
     if (userId) {
       const dbUpdates: Record<string, unknown> = { ...updates, updated_at: new Date().toISOString() }
       delete dbUpdates.id
-      delete dbUpdates.display_name
 
-      await supabase.from('profiles').update(dbUpdates).eq('id', userId)
+      const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', userId)
+      if (error) {
+        console.error('Failed to update profile:', error.message)
+      }
     }
   }, [userId])
 

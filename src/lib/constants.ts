@@ -3,7 +3,7 @@ import {
   Plane, Clapperboard, Radio, Zap, TrendingUp, Users, Mic, Target, BookOpen,
   Eye, GraduationCap,
 } from 'lucide-react'
-import type { TopicDefinition, VoiceDefinition, Episode, SegmentSource, KnowledgeBlock } from './types'
+import type { TopicDefinition, VoiceDefinition, Episode, EpisodeSegment, SegmentSource, KnowledgeBlock, UserTopic } from './types'
 
 export const TOPIC_CATALOG: TopicDefinition[] = [
   { id: 'earnings', label: 'Markets & Earnings', icon: BarChart3, color: '#4A90D9', subs: ['Earnings next week', 'S&P movers', 'IPO pipeline', 'Crypto', 'Sector rotation'] },
@@ -123,6 +123,112 @@ const MOCK_SOURCES: Record<string, SegmentSource[]> = {
   ],
 }
 
+/** Segment templates keyed by topic_id — used to build episodes dynamically from user topics */
+const SEGMENT_TEMPLATES: Record<string, { title: string; voice: string; duration: number; script: string; sourceKey?: string }> = {
+  earnings: { title: 'Markets & Earnings', voice: 'strategist', duration: 300, script: 'The S&P five hundred finished the week at fifty-three twelve, up one point two percent, with the Nasdaq leading at one point eight percent. NVIDIA was the story of the week — data center revenue hit twenty point two billion, beating consensus by eight hundred million. But the real headline is that inference workloads officially crossed fifty percent of GPU compute. That\'s a structural shift. Adobe followed Thursday with solid numbers, and Oracle\'s Monday print showed cloud infrastructure jumping forty-six percent year-over-year. The rate cut narrative strengthened — Fed funds futures now price seventy-two percent odds of a June cut after Waller\'s speech.', sourceKey: 'earnings' },
+  tech: { title: 'Technology', voice: 'correspondent', duration: 260, script: 'Two massive tech stories this week. Apple unveiled Apple Glass at its surprise spring event — lightweight AR glasses that pair with your iPhone, shipping in June. Early hands-on reports say they\'re surprisingly comfortable and the field of view is wider than expected. This is Apple\'s real play in spatial computing, not the Vision Pro. And as of yesterday, the EU AI Act is officially in enforcement. Companies deploying high-risk AI systems in Europe need compliance documentation filed or face fines up to seven percent of global revenue.', sourceKey: 'tech' },
+  world: { title: 'World News', voice: 'anchor', duration: 240, script: 'The ceasefire talks in Geneva made more progress this week than in any previous round. The key breakthrough is a new framework from Turkish and Brazilian mediators that decouples the territorial question from security guarantees. Both sides agreed to discuss it, which alone is significant. Meanwhile, China\'s five hundred billion dollar stimulus package is reshaping expectations for global growth.', sourceKey: 'world' },
+  local: { title: 'Bay Area & Marin', voice: 'neighbor', duration: 200, script: 'Good morning, Marin. The San Rafael farmer\'s market is in full swing at its new year-round schedule, eight AM to one PM. If you missed the Housing Element vote, the Board of Supervisors passed it Thursday night. And a heads-up — the Richmond-San Rafael Bridge has eastbound lane closures Monday through Wednesday nights for maintenance, nine PM to five AM.', sourceKey: 'local' },
+  business: { title: 'Business & Economy', voice: 'strategist', duration: 240, script: 'Fed Governor Christopher Waller gave a speech that markets are treating as a green light for June. He said the totality of the data is moving in the right direction. The February CPI print came in at two point six percent, down from two point eight in January. Core PCE is trending at two point four. Fed funds futures now show seventy-two percent odds of a June cut.', sourceKey: 'earnings' },
+  science: { title: 'Science & Health', voice: 'scottish-mentor', duration: 200, script: 'The European Medicines Agency approved the first in-vivo CRISPR gene therapy — a one-time treatment for sickle cell disease that edits stem cells inside the patient\'s body, no extraction required. And NASA\'s Artemis three crew selection was finalized. Four astronauts will head to the lunar south pole in late twenty twenty-seven.' },
+  creative: { title: 'Creative & Culture', voice: 'host', duration: 120, script: 'The Fujifilm-Hasselblad acquisition rumors heated up — DPReview sources say a deal for the medium format division could close by summer. The new Sigma fifty millimeter f-one-point-two Art lens is getting rave reviews. And if you\'re shooting this weekend, the wildflower bloom on Mount Tam is absolutely peaking right now.', sourceKey: 'creative' },
+  sports: { title: 'Sports', voice: 'southern-gentleman', duration: 240, script: 'Selection Sunday is coming and the bracket is taking shape. Duke is the favorite for the top overall seed after winning the ACC tournament. Houston, Auburn, and Florida round out the projected one seeds. The Warriors snuck in a trade deadline deal, picking up a switchable wing defender in a three-team deal.' },
+  travel: { title: 'Travel', voice: 'modern-brand-ambassador', duration: 180, script: 'If you\'re thinking about a spring getaway, some great fares just dropped from SFO. United has roundtrips to Honolulu for two forty-nine through April — that\'s nearly forty percent below average. Alaska Airlines is running a flash sale to Cabo for one ninety-nine roundtrip.' },
+  entertainment: { title: 'Entertainment', voice: 'insider', duration: 180, script: 'Alright, let\'s talk about The Bear. Season Four dropped on Hulu and I binged all ten episodes. Without spoilers — it\'s the best season yet. The pacing is tighter, the kitchen scenes are more intense, and there\'s a mid-season episode that\'s going to have everyone talking. Also worth noting — Oscar nominations are heating up.', sourceKey: 'entertainment' },
+}
+
+
+/** Build the current episode dynamically from the user's selected topics */
+export function buildEpisodeFromTopics(userTopics: UserTopic[], defaultVoice: string): Episode {
+  const today = daysAgo(0)
+  const weekend = isWeekend(today)
+  const suffix = weekend ? 'Weekend Digest' : 'Morning Brief'
+
+  // Sort topics: pinned first, then by weight (featured > standard > brief), then sort_order
+  const weightOrder: Record<string, number> = { featured: 0, standard: 1, brief: 2 }
+  const sorted = [...userTopics].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+    if (a.weight !== b.weight) return (weightOrder[a.weight] ?? 1) - (weightOrder[b.weight] ?? 1)
+    return a.sort_order - b.sort_order
+  })
+
+  // Build topic segments
+  let elapsed = 50 // after cold open
+  const topicSegments: EpisodeSegment[] = sorted.map((ut, i) => {
+    const tmpl = SEGMENT_TEMPLATES[ut.topic_id]
+    if (!tmpl) return null
+    const voice = ut.voice_override || tmpl.voice || defaultVoice
+    const duration = ut.weight === 'featured' ? tmpl.duration : ut.weight === 'brief' ? Math.round(tmpl.duration * 0.5) : tmpl.duration
+    const seg: EpisodeSegment = {
+      topic_id: ut.topic_id,
+      segment_type: 'topic',
+      title: tmpl.title,
+      voice,
+      start_time_seconds: elapsed,
+      duration_seconds: duration,
+      script: tmpl.script,
+      sources: tmpl.sourceKey && MOCK_SOURCES[tmpl.sourceKey] ? MOCK_SOURCES[tmpl.sourceKey] : [],
+      sort_order: i + 1,
+    }
+    elapsed += duration
+    return seg
+  }).filter((s): s is EpisodeSegment => s !== null)
+
+  // Cold open
+  const coldOpen: EpisodeSegment = {
+    topic_id: null,
+    segment_type: 'cold_open',
+    title: 'Cold Open',
+    voice: 'scottish-mentor',
+    start_time_seconds: 0,
+    duration_seconds: 50,
+    script: `Good morning, and welcome to your ${weekend ? 'weekend digest' : 'morning brief'}. We've got ${topicSegments.length} segments for you today. Let's get into it.`,
+    sources: [],
+    sort_order: 0,
+  }
+
+  // Wrap up
+  const wrapUp: EpisodeSegment = {
+    topic_id: null,
+    segment_type: 'wrap_up',
+    title: 'Wrap & Look-Ahead',
+    voice: 'scottish-mentor',
+    start_time_seconds: elapsed,
+    duration_seconds: 60,
+    script: `That's your ${weekend ? 'weekend digest' : 'morning brief'}. We'll see you ${weekend ? 'Monday morning' : 'tomorrow'} with a fresh episode. Have a wonderful ${weekend ? 'weekend' : 'day'}.`,
+    sources: [],
+    sort_order: topicSegments.length + 1,
+  }
+
+  const allSegments = [coldOpen, ...topicSegments, wrapUp]
+  const totalMinutes = Math.round((elapsed + 60) / 60)
+
+  return {
+    title: toEpisodeTitle(today, suffix),
+    date: toISODate(today),
+    cadence: weekend ? 'weekly' : 'daily',
+    tone: isSunday(today) ? 'commentary' : 'mixed',
+    estimated_minutes: totalMinutes,
+    status: 'ready',
+    show_notes: {
+      segments: topicSegments.map(s => ({
+        title: s.title,
+        sources: s.sources || [],
+      })),
+      correction_notes: [],
+      source_summary: {
+        total_articles: topicSegments.length * 2,
+        total_outlets: topicSegments.length + 2,
+        tier_1_count: Math.ceil(topicSegments.length * 0.5),
+        tier_2_count: Math.ceil(topicSegments.length * 0.4),
+        tier_3_count: Math.max(1, Math.floor(topicSegments.length * 0.1)),
+      },
+    },
+    segments: allSegments,
+  }
+}
+
+// Fallback static episode for when no topics are available
 const today = daysAgo(0)
 const todaySuffix = isWeekend(today) ? 'Weekend Digest' : 'Morning Brief'
 
