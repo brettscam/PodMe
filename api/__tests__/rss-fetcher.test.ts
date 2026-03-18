@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fetchRssForTopic, type FetchedRssContent } from '../lib/rss-fetcher'
+import { fetchRssForTopic, type FetchedRssContent } from '../lib/rss-fetcher.js'
 
 // Mock global fetch
 const mockFetch = vi.fn()

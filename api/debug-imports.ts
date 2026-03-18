@@ -4,35 +4,35 @@ const checks: Record<string, string> = {}
 
 // Test each import individually
 try {
-  await import('./lib/topic-meta')
+  await import('./lib/topic-meta.js')
   checks['topic-meta'] = 'ok'
 } catch (e: unknown) {
   checks['topic-meta'] = e instanceof Error ? e.message : String(e)
 }
 
 try {
-  await import('./lib/rss-parser')
+  await import('./lib/rss-parser.js')
   checks['rss-parser'] = 'ok'
 } catch (e: unknown) {
   checks['rss-parser'] = e instanceof Error ? e.message : String(e)
 }
 
 try {
-  await import('./lib/rss-feeds')
+  await import('./lib/rss-feeds.js')
   checks['rss-feeds'] = 'ok'
 } catch (e: unknown) {
   checks['rss-feeds'] = e instanceof Error ? e.message : String(e)
 }
 
 try {
-  await import('./lib/rss-fetcher')
+  await import('./lib/rss-fetcher.js')
   checks['rss-fetcher'] = 'ok'
 } catch (e: unknown) {
   checks['rss-fetcher'] = e instanceof Error ? e.message : String(e)
 }
 
 try {
-  await import('./lib/content-merger')
+  await import('./lib/content-merger.js')
   checks['content-merger'] = 'ok'
 } catch (e: unknown) {
   checks['content-merger'] = e instanceof Error ? e.message : String(e)

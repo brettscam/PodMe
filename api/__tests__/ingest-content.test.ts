@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { ingestAllTopics } from '../cron/ingest-content'
+import { ingestAllTopics } from '../cron/ingest-content.js'
 
 vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('no network in tests')))
 

@@ -1,5 +1,5 @@
-import { getFeedsForTopic } from './rss-feeds'
-import { parseRssFeed, type RssArticle } from './rss-parser'
+import { getFeedsForTopic } from './rss-feeds.js'
+import { parseRssFeed, type RssArticle } from './rss-parser.js'
 
 export interface FetchedRssContent {
   articles: RssArticle[]

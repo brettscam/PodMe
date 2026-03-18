@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getUsersDueForEpisode } from '../cron/generate-episodes'
+import { getUsersDueForEpisode } from '../cron/generate-episodes.js'
 
 // Mock Supabase
 vi.mock('@supabase/supabase-js', () => ({

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildDigestEmail } from '../cron/send-digests'
+import { buildDigestEmail } from '../cron/send-digests.js'
 
 describe('buildDigestEmail', () => {
   it('generates HTML with episode data', () => {

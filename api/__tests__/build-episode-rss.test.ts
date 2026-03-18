@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mergeRssAndWebSearch } from '../lib/content-merger'
+import { mergeRssAndWebSearch } from '../lib/content-merger.js'
 
 describe('mergeRssAndWebSearch', () => {
   it('combines RSS articles with web_search results', () => {

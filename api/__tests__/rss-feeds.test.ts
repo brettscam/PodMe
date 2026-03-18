@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getFeedsForTopic, ALL_FEEDS } from '../lib/rss-feeds'
+import { getFeedsForTopic, ALL_FEEDS } from '../lib/rss-feeds.js'
 
 describe('rss-feeds', () => {
   it('returns feeds for a known topic', () => {

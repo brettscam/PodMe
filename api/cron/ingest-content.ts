@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
-import { fetchRssForTopic } from '../lib/rss-fetcher'
-import { mergeRssAndWebSearch } from '../lib/content-merger'
-import { TOPIC_META } from '../lib/topic-meta'
+import { fetchRssForTopic } from '../lib/rss-fetcher.js'
+import { mergeRssAndWebSearch } from '../lib/content-merger.js'
+import { TOPIC_META } from '../lib/topic-meta.js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
