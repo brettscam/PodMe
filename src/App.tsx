@@ -34,14 +34,18 @@ export default function App() {
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
   const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
-  const { currentEpisode, pastEpisodes } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
+  const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode, reset: resetGeneration } = useGenerate()
 
   const handleRegenerate = useCallback(() => {
     resetGeneration()
-    generateEpisode(currentEpisode.segments)
-  }, [resetGeneration, generateEpisode, currentEpisode.segments])
+    if (currentEpisode) {
+      generateEpisode(currentEpisode.segments)
+    } else {
+      refreshEpisode()
+    }
+  }, [resetGeneration, generateEpisode, currentEpisode, refreshEpisode])
 
   const toggleLifeContext = useCallback((id: string, enabled: boolean) => {
     setLifeContexts(prev => prev.map(c => c.type === id ? { ...c, enabled } : c))
@@ -90,7 +94,9 @@ export default function App() {
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}
             onPreviewEmail={() => setShowEmailPreview(true)}
-            onGenerate={() => generateEpisode(currentEpisode.segments)}
+            episodeLoading={episodeLoading}
+            episodeError={episodeError}
+            onGenerate={() => currentEpisode ? generateEpisode(currentEpisode.segments) : refreshEpisode()}
             onRegenerate={handleRegenerate}
           />
         )
@@ -137,13 +143,13 @@ export default function App() {
             shareToken={shareToken}
             copied={copied}
             listenCount={listenCount}
-            onGenerateShare={() => generateShareLink(currentEpisode.id!, user?.user_metadata?.full_name)}
+            onGenerateShare={() => currentEpisode?.id ? generateShareLink(currentEpisode.id, user?.user_metadata?.full_name) : undefined}
             getShareUrl={getShareUrl}
             onCopy={copyShareLink}
             onShare={nativeShare}
             generationProgress={genProgress}
             generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
-            onGenerate={() => generateEpisode(currentEpisode.segments)}
+            onGenerate={() => currentEpisode ? generateEpisode(currentEpisode.segments) : refreshEpisode()}
             onRegenerate={handleRegenerate}
           />
         )

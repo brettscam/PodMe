@@ -20,7 +20,7 @@ interface GenerationProgress {
 }
 
 interface EpisodePreviewProps {
-  episode: Episode
+  episode: Episode | null
   pastEpisodes: Episode[]
   shareToken: string | null
   copied: boolean
@@ -54,7 +54,26 @@ export default function EpisodePreview({
   const progressRef = useRef<HTMLDivElement | null>(null)
 
   const activeEpisode = selectedEpisode || episode
-  const totalEpisodeDuration = activeEpisode.segments.reduce((sum, s) => sum + s.duration_seconds, 0)
+  const totalEpisodeDuration = activeEpisode ? activeEpisode.segments.reduce((sum, s) => sum + s.duration_seconds, 0) : 0
+
+  if (!activeEpisode) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-card p-8 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No episode available yet.</p>
+          {onGenerate && (
+            <button
+              onClick={onGenerate}
+              className="mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all-200"
+              style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
+            >
+              Generate Episode
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // Determine audio source — use generated audio if available
   const hasGeneratedAudio = generatedAudioUrls && generatedAudioUrls.length > 0

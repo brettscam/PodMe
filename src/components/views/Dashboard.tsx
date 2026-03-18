@@ -9,9 +9,11 @@ import MiniPlayer from '../ui/MiniPlayer'
 interface DashboardProps {
   profile: UserProfile
   topics: UserTopic[]
-  episode: Episode
+  episode: Episode | null
   generatedAudioUrls?: string[]
   generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
+  episodeLoading?: boolean
+  episodeError?: string | null
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
@@ -20,7 +22,7 @@ interface DashboardProps {
   onRegenerate?: () => void
 }
 
-export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, episodeLoading, episodeError, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const knowledgeBlock = useMemo<KnowledgeBlock>(() => getPersonalizedKnowledgeBlock(topics.map(t => t.topic_id)), [topics])
 
@@ -34,7 +36,41 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
   return (
     <div className="space-y-4">
       {/* Player — front and center */}
-      <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} generationStatus={generationStatus} onViewEpisode={() => onNavigate('episode')} onGenerate={onGenerate} onRegenerate={onRegenerate} />
+      {episodeLoading ? (
+        <div className="rounded-card p-6 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-end justify-center gap-1 h-6 mb-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="wave-bar" style={{ width: 3, height: 16 }} />
+            ))}
+          </div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Fetching today's content...</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Searching news sources and generating your episode</p>
+        </div>
+      ) : episodeError ? (
+        <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
+          <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>{episodeError}</p>
+          <button
+            onClick={onGenerate}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+            style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : episode ? (
+        <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} generationStatus={generationStatus} onViewEpisode={() => onNavigate('episode')} onGenerate={onGenerate} onRegenerate={onRegenerate} />
+      ) : (
+        <div className="rounded-card p-6 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
+          <button
+            onClick={onGenerate}
+            className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+            style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
+          >
+            Generate Today's Episode
+          </button>
+        </div>
+      )}
 
       {/* Knowledge Block — personalized to user topics */}
       <div

@@ -242,6 +242,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const params = req.method === 'GET' ? req.query : req.body
   const tone = (params.tone as string) || 'mixed'
   const length = (params.length as string) || 'standard'
+  const forceRefresh = params.force_refresh === true || params.force_refresh === 'true'
   const topicsParam = params.topics as string | TopicParam[] | undefined
 
   if (!topicsParam) {
@@ -294,10 +295,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Step 0: Fetch missing content in parallel for all topics
   const contentMap = new Map<string, { title: string; claims: string[]; sources: unknown[]; content_hash: string }>()
 
+  // If force_refresh, delete today's cached content so we re-fetch everything
+  if (forceRefresh) {
+    await supabase
+      .from('topic_content')
+      .delete()
+      .eq('fetch_date', today)
+  }
+
   const contentChecks = sorted
     .filter(ut => FALLBACK_SCRIPTS[ut.topic_id])
     .map(async (ut) => {
-      // Check if content exists for today
+      // Check if content exists for today (skipped if force_refresh cleared it above)
       const { data: existing } = await supabase
         .from('topic_content')
         .select('*')

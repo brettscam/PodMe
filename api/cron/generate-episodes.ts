@@ -87,6 +87,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const data = await response.json()
       const episode = data.episode
 
+      // Don't save episodes that are entirely fallback content
+      const stats = data.cache_stats
+      if (stats && stats.fallbacks > 0 && stats.hits === 0 && stats.misses === 0) {
+        return { userId: user.id, status: 'skipped_all_fallback' }
+      }
+
       const episodeId = crypto.randomUUID()
       await supabase.from('episodes').insert({
         id: episodeId,
