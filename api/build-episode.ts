@@ -282,6 +282,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   }
 
+  // Fail fast if Supabase not configured
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(503).json({
+      error: 'Supabase not configured. Cannot cache or retrieve episode content.',
+      hint: 'Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your Vercel environment variables.',
+    })
+  }
+
+  try {
+
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 
@@ -437,7 +447,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model_used: 'claude-haiku-4-5-20251001',
         prompt_tokens: result.prompt_tokens,
         completion_tokens: result.completion_tokens,
-      }).then(() => {})
+      }).then(() => {}).catch((e: unknown) => console.error('Script cache insert failed:', e))
 
       topicSegments.push({
         topic_id: ut.topic_id,
@@ -536,4 +546,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       content_fetches: contentFetches,
     },
   })
+
+  } catch (err) {
+    console.error('build-episode handler error:', err)
+    return res.status(500).json({ error: err instanceof Error ? err.message : 'Internal server error' })
+  }
 }
