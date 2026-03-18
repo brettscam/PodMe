@@ -137,7 +137,7 @@ export default function App() {
             shareToken={shareToken}
             copied={copied}
             listenCount={listenCount}
-            onGenerateShare={generateShareLink}
+            onGenerateShare={() => generateShareLink(currentEpisode.id!, user?.user_metadata?.full_name)}
             getShareUrl={getShareUrl}
             onCopy={copyShareLink}
             onShare={nativeShare}
@@ -177,7 +177,7 @@ export default function App() {
         userName={user.user_metadata?.full_name || user.email || undefined}
         onSignOut={signOut}
       />
-      <main className="relative z-10 w-full max-w-app mx-auto px-5 pt-[72px] pb-[100px]">
+      <main className="relative z-10 w-full max-w-app mx-auto px-5 pt-[72px]" style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' }}>
         {renderView()}
       </main>
       <BottomNav currentView={currentView} onNavigate={setCurrentView} />
