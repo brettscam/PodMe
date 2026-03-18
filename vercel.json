@@ -15,6 +15,9 @@
     "api/debug-env.ts": {
       "maxDuration": 30
     },
+    "api/debug-imports.ts": {
+      "maxDuration": 30
+    },
     "api/cron/send-digests.ts": {
       "maxDuration": 120
     },
