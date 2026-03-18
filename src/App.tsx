@@ -34,7 +34,7 @@ export default function App() {
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
   const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
-  const { currentEpisode, pastEpisodes } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice)
+  const { currentEpisode, pastEpisodes } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode, reset: resetGeneration } = useGenerate()
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Episode, UserTopic, Tone, Length, BuildEpisodeResponse } from '../lib/types'
 import { buildEpisodeFromTopics, PAST_EPISODES } from '../lib/constants'
+import { supabase } from '../lib/supabase'
 
 interface UseEpisodeBuilderResult {
   currentEpisode: Episode
@@ -20,11 +21,13 @@ export function useEpisodeBuilder(
   tone: Tone,
   length: Length,
   defaultVoice: string,
+  userId?: string,
 ): UseEpisodeBuilderResult {
   const [serverEpisode, setServerEpisode] = useState<Episode | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cacheStats, setCacheStats] = useState<{ hits: number; misses: number; fallbacks: number } | null>(null)
+  const [dbPastEpisodes, setDbPastEpisodes] = useState<Episode[]>([])
   const abortRef = useRef<AbortController | null>(null)
 
   // Local fallback — always available synchronously
@@ -44,6 +47,30 @@ export function useEpisodeBuilder(
     setError(null)
 
     try {
+      // Check if a pre-generated episode exists for today
+      if (userId) {
+        const { data: preGenerated } = await supabase
+          .from('episodes')
+          .select('*, episode_segments(*)')
+          .eq('user_id', userId)
+          .eq('date', new Date().toISOString().split('T')[0])
+          .eq('status', 'ready')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+
+        if (preGenerated) {
+          const episode = {
+            ...preGenerated,
+            segments: (preGenerated.episode_segments || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+          }
+          delete (episode as any).episode_segments
+          setServerEpisode(episode)
+          setLoading(false)
+          return
+        }
+      }
+
       const topicsPayload = topics.map(t => ({
         topic_id: t.topic_id,
         weight: t.weight,
@@ -75,7 +102,7 @@ export function useEpisodeBuilder(
     } finally {
       setLoading(false)
     }
-  }, [topics, tone, length])
+  }, [topics, tone, length, userId])
 
   // Fetch on mount and when dependencies change
   useEffect(() => {
@@ -84,6 +111,21 @@ export function useEpisodeBuilder(
       if (abortRef.current) abortRef.current.abort()
     }
   }, [fetchEpisode])
+
+  // Load past episodes from DB
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('episodes')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'ready')
+      .order('date', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) setDbPastEpisodes(data)
+      })
+  }, [userId])
 
   // Use server episode if available, otherwise local fallback
   const currentEpisode: Episode = serverEpisode || localEpisode || {
@@ -98,7 +140,7 @@ export function useEpisodeBuilder(
 
   return {
     currentEpisode,
-    pastEpisodes: PAST_EPISODES,
+    pastEpisodes: dbPastEpisodes.length > 0 ? dbPastEpisodes : PAST_EPISODES,
     loading,
     error,
     cacheStats,
