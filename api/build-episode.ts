@@ -27,18 +27,21 @@ const WEIGHT_MULTIPLIERS: Record<string, number> = {
   brief: 0.5,
 }
 
+// Single voice for all segments — keeps the podcast cohesive
+const DEFAULT_VOICE = 'scottish-mentor'
+
 // Topic defaults — voice and title only, NO hardcoded scripts (those go stale)
 const TOPIC_DEFAULTS: Record<string, { title: string; voice: string }> = {
-  earnings: { title: 'Markets & Earnings', voice: 'strategist' },
-  tech: { title: 'Technology', voice: 'correspondent' },
-  world: { title: 'World News', voice: 'anchor' },
-  local: { title: 'Bay Area & Marin', voice: 'neighbor' },
-  business: { title: 'Business & Economy', voice: 'strategist' },
-  science: { title: 'Science & Health', voice: 'scottish-mentor' },
-  creative: { title: 'Creative & Culture', voice: 'host' },
-  sports: { title: 'Sports', voice: 'southern-gentleman' },
-  travel: { title: 'Travel', voice: 'modern-brand-ambassador' },
-  entertainment: { title: 'Entertainment', voice: 'insider' },
+  earnings: { title: 'Markets & Earnings', voice: DEFAULT_VOICE },
+  tech: { title: 'Technology', voice: DEFAULT_VOICE },
+  world: { title: 'World News', voice: DEFAULT_VOICE },
+  local: { title: 'Bay Area & Marin', voice: DEFAULT_VOICE },
+  business: { title: 'Business & Economy', voice: DEFAULT_VOICE },
+  science: { title: 'Science & Health', voice: DEFAULT_VOICE },
+  creative: { title: 'Creative & Culture', voice: DEFAULT_VOICE },
+  sports: { title: 'Sports', voice: DEFAULT_VOICE },
+  travel: { title: 'Travel', voice: DEFAULT_VOICE },
+  entertainment: { title: 'Entertainment', voice: DEFAULT_VOICE },
 }
 
 // --- Content Ingestion ---
@@ -326,7 +329,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .eq('fetch_date', today)
         .single()
 
-      if (existing) {
+      // If cached content exists but custom_tags changed, re-fetch
+      const tagsHash = (ut.custom_tags || []).sort().join(',')
+      const cachedTagsHash = (existing?.custom_tags_hash as string) || ''
+
+      if (existing && tagsHash === cachedTagsHash) {
         contentMap.set(ut.topic_id, existing)
         return
       }
@@ -349,6 +356,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contentFetches++
       const content_hash = hashContent(ut.topic_id, today, merged.claims)
 
+      const customTagsHash = (ut.custom_tags || []).sort().join(',')
       await supabase.from('topic_content').upsert({
         topic_id: ut.topic_id,
         fetch_date: today,
@@ -356,6 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         claims: merged.claims,
         sources: merged.sources,
         content_hash,
+        custom_tags_hash: customTagsHash,
       }, { onConflict: 'topic_id,fetch_date' })
 
       contentMap.set(ut.topic_id, {

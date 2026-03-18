@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Episode, UserTopic, Tone, Length, BuildEpisodeResponse } from '../lib/types'
 import { supabase } from '../lib/supabase'
 
@@ -13,7 +13,7 @@ interface UseEpisodeBuilderResult {
 
 /**
  * Calls the build-episode API to generate a fresh episode.
- * No local fallback — if the API fails, the error is surfaced to the user.
+ * Only fetches once on mount — user must explicitly call refresh() to regenerate.
  */
 export function useEpisodeBuilder(
   topics: UserTopic[] | undefined,
@@ -28,6 +28,13 @@ export function useEpisodeBuilder(
   const [cacheStats, setCacheStats] = useState<{ hits: number; misses: number; fallbacks: number } | null>(null)
   const [dbPastEpisodes, setDbPastEpisodes] = useState<Episode[]>([])
   const abortRef = useRef<AbortController | null>(null)
+  const hasFetchedRef = useRef(false)
+
+  // Stabilize topics reference — only change when the actual data changes
+  const topicsKey = useMemo(
+    () => topics ? JSON.stringify(topics.map(t => ({ id: t.topic_id, w: t.weight, p: t.pinned, tags: t.custom_tags }))) : '',
+    [topics],
+  )
 
   const fetchEpisode = useCallback(async (forceRefresh = false) => {
     if (!topics || topics.length === 0) return
@@ -82,15 +89,20 @@ export function useEpisodeBuilder(
     } finally {
       setLoading(false)
     }
-  }, [topics, tone, length, userId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicsKey, tone, length])
 
-  // Fetch on mount and when dependencies change
+  // Only fetch once on mount when topics are available — not on every change
   useEffect(() => {
+    if (hasFetchedRef.current) return
+    if (!topics || topics.length === 0) return
+    hasFetchedRef.current = true
     fetchEpisode()
     return () => {
       if (abortRef.current) abortRef.current.abort()
     }
-  }, [fetchEpisode])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicsKey])
 
   // Load past episodes from DB
   useEffect(() => {
