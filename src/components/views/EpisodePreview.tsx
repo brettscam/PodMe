@@ -369,20 +369,20 @@ export default function EpisodePreview({
             border: '1px solid var(--border-subtle)',
           }}
         >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               {isPlaying && (
-                <div className="flex items-end gap-0.5 h-4">
+                <div className="flex items-end gap-0.5 h-4 flex-shrink-0">
                   <div className="wave-bar" style={{ width: 2, height: 16, animationDuration: '0.8s' }} />
                   <div className="wave-bar" style={{ width: 2, height: 16, animationDuration: '1.0s', animationDelay: '0.1s' }} />
                   <div className="wave-bar" style={{ width: 2, height: 16, animationDuration: '0.9s', animationDelay: '0.2s' }} />
                 </div>
               )}
-              <span className="text-xs font-semibold text-white">
+              <span className="text-xs font-semibold text-white truncate">
                 {activeEpisode.segments[currentSegmentIndex]?.title}
               </span>
             </div>
-            <span className="tabular-nums text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            <span className="tabular-nums text-[11px] flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
               {formatSeconds(displayCurrentTime)} / {formatSeconds(displayTotalTime)}
             </span>
           </div>
