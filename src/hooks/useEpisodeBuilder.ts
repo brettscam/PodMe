@@ -19,7 +19,7 @@ export function useEpisodeBuilder(
   topics: UserTopic[] | undefined,
   tone: Tone,
   length: Length,
-  defaultVoice: string,
+  _defaultVoice: string,
   userId?: string,
 ): UseEpisodeBuilderResult {
   const [serverEpisode, setServerEpisode] = useState<Episode | null>(null)
