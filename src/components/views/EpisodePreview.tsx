@@ -25,7 +25,7 @@ interface EpisodePreviewProps {
   shareToken: string | null
   copied: boolean
   listenCount: number
-  onGenerateShare: () => string
+  onGenerateShare: () => void
   getShareUrl: (token?: string) => string
   onCopy: () => void
   onShare: (title: string) => void

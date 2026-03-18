@@ -17,12 +17,14 @@ interface BottomNavProps {
 export default function BottomNav({ currentView, onNavigate }: BottomNavProps) {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2 h-16"
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around px-2"
       style={{
         backgroundColor: 'rgba(13,13,26,0.85)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderTop: '1px solid var(--border-subtle)',
+        height: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {NAV_ITEMS.map(({ view, icon: Icon, label }) => {
