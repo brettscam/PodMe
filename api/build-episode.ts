@@ -415,24 +415,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Step 3: Cache MISS — generate with LLM
-    if (!anthropicApiKey) {
-      // No API key, fall back to template
-      fallbacks++
-      topicSegments.push({
-        topic_id: ut.topic_id,
-        segment_type: 'topic',
-        title: content.title || fallback.title,
-        voice,
-        start_time_seconds: elapsed,
-        duration_seconds: targetDuration,
-        script: fallback.script,
-        sources: content.sources || [],
-        sort_order: topicSegments.length + 1,
-      })
-      elapsed += targetDuration
-      continue
-    }
-
     try {
       cacheMisses++
       const result = await generateScript(

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Episode, UserTopic, Tone, Length, BuildEpisodeResponse } from '../lib/types'
-import { PAST_EPISODES } from '../lib/constants'
 import { supabase } from '../lib/supabase'
 
 interface UseEpisodeBuilderResult {
@@ -30,7 +29,7 @@ export function useEpisodeBuilder(
   const [dbPastEpisodes, setDbPastEpisodes] = useState<Episode[]>([])
   const abortRef = useRef<AbortController | null>(null)
 
-  const fetchEpisode = useCallback(async () => {
+  const fetchEpisode = useCallback(async (forceRefresh = false) => {
     if (!topics || topics.length === 0) return
 
     // Cancel any in-flight request
@@ -51,10 +50,13 @@ export function useEpisodeBuilder(
         custom_tags: t.custom_tags || [],
       }))
 
+      const body: Record<string, unknown> = { tone, length, topics: topicsPayload }
+      if (forceRefresh) body.force_refresh = true
+
       const response = await fetch('/api/build-episode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tone, length, topics: topicsPayload, force_refresh: true }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       })
 
@@ -107,10 +109,10 @@ export function useEpisodeBuilder(
 
   return {
     currentEpisode: serverEpisode,
-    pastEpisodes: dbPastEpisodes.length > 0 ? dbPastEpisodes : PAST_EPISODES,
+    pastEpisodes: dbPastEpisodes,
     loading,
     error,
     cacheStats,
-    refresh: fetchEpisode,
+    refresh: () => fetchEpisode(true),
   }
 }
