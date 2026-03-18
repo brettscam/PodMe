@@ -17,6 +17,9 @@
     },
     "api/cron/generate-episodes.ts": {
       "maxDuration": 300
+    },
+    "api/cron/ingest-content.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -27,6 +30,10 @@
     {
       "path": "/api/cron/generate-episodes",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/ingest-content",
+      "schedule": "0 */4 * * *"
     }
   ],
   "rewrites": [
