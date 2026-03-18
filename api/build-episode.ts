@@ -60,7 +60,7 @@ async function fetchTopicContent(
   subs: string[],
   customTags: string[] = [],
 ): Promise<FetchedContent | null> {
-  if (!anthropicApiKey) return null
+  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
 
   const tagsClause = customTags.length > 0
     ? `\nThe user has specifically requested coverage of these topics/tags: ${customTags.join(', ')}. Prioritize finding news about these.`
@@ -174,6 +174,8 @@ async function generateScript(
   tone: string,
   length: string,
 ): Promise<{ script: string; duration: number; prompt_tokens: number; completion_tokens: number }> {
+  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+
   const toneGuide: Record<string, string> = {
     factual: 'dry reporting style, just the facts, no opinion',
     mixed: 'reporting with light commentary, conversational but informative',

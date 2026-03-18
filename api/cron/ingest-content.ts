@@ -18,7 +18,7 @@ function hashContent(topicId: string, fetchDate: string, claims: string[]): stri
 async function fetchTopicContentViaWebSearch(
   topicId: string, label: string, subs: string[],
 ): Promise<{ title: string; claims: string[]; sources: any[] } | null> {
-  if (!anthropicApiKey) return null
+  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
   const prompt = `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.
 After searching, return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
 {"title":"headline","claims":["claim 1","claim 2"],"sources":[{"outlet":"Name","domain":"example.com","tier":1,"title":"Article","url":"https://...","published_at":"2026-03-18T00:00:00Z","cited_claims":["claim 1"]}]}
@@ -120,6 +120,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = req.headers.authorization
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  if (!anthropicApiKey) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured. Content ingestion requires an API key.' })
   }
 
   const today = new Date().toISOString().split('T')[0]

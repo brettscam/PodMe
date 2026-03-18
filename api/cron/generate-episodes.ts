@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ''
 const CRON_SECRET = process.env.CRON_SECRET || ''
 
 const BUILD_EPISODE_URL = process.env.VERCEL_URL
@@ -45,6 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = req.headers.authorization
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  if (!anthropicApiKey) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured. Episode generation requires an API key.' })
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
