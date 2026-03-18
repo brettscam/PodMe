@@ -221,10 +221,10 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
       {/* Current Segment Indicator */}
       {activeSegment && voice && (
         <div className="px-5 py-2">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: voice.color }} />
-            <span className="text-xs font-semibold text-white">{activeSegment.title}</span>
-            <span className="text-[10px] font-medium" style={{ color: voice.color }}>
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: voice.color }} />
+            <span className="text-xs font-semibold text-white truncate">{activeSegment.title}</span>
+            <span className="text-[10px] font-medium flex-shrink-0" style={{ color: voice.color }}>
               {voice.name.replace('The ', '')}
             </span>
           </div>
