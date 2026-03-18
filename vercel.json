@@ -12,6 +12,9 @@
     "api/build-episode.ts": {
       "maxDuration": 120
     },
+    "api/debug-env.ts": {
+      "maxDuration": 30
+    },
     "api/cron/send-digests.ts": {
       "maxDuration": 120
     },
