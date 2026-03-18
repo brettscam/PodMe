@@ -14,12 +14,19 @@
     },
     "api/cron/send-digests.ts": {
       "maxDuration": 120
+    },
+    "api/cron/generate-episodes.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
     {
       "path": "/api/cron/send-digests",
       "schedule": "5,20,35,50 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-episodes",
+      "schedule": "*/15 * * * *"
     }
   ],
   "rewrites": [
