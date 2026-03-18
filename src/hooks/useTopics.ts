@@ -168,40 +168,54 @@ export function useTopics(userId: string | undefined | null) {
   }, [updateTopic])
 
   const addCustomTag = useCallback(async (topicId: string, tag: string) => {
-    const topic = topics.find(t => t.topic_id === topicId)
-    if (!topic || topic.custom_tags.includes(tag)) return
-    const newTags = [...topic.custom_tags, tag]
+    if (!userId) return
 
-    // Optimistic update
-    setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: newTags } : t))
+    let newTags: string[] = []
+    let previousTags: string[] = []
 
-    if (userId) {
-      const { error } = await supabase.from('user_topics').update({ custom_tags: newTags }).eq('user_id', userId).eq('topic_id', topicId)
-      if (error) {
-        console.error('Failed to add tag:', error.message)
-        // Rollback
-        setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: topic.custom_tags } : t))
+    setTopics(prev => prev.map(t => {
+      if (t.topic_id === topicId) {
+        if (t.custom_tags.includes(tag)) {
+          newTags = t.custom_tags // no change needed
+          return t
+        }
+        previousTags = t.custom_tags
+        newTags = [...t.custom_tags, tag]
+        return { ...t, custom_tags: newTags }
       }
+      return t
+    }))
+
+    if (newTags.length === 0 || newTags === previousTags) return
+
+    const { error } = await supabase.from('user_topics').update({ custom_tags: newTags }).eq('user_id', userId).eq('topic_id', topicId)
+    if (error) {
+      console.error('Failed to add tag:', error.message)
+      setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: previousTags } : t))
     }
-  }, [userId, topics])
+  }, [userId])
 
   const removeCustomTag = useCallback(async (topicId: string, tag: string) => {
-    const topic = topics.find(t => t.topic_id === topicId)
-    if (!topic) return
-    const newTags = topic.custom_tags.filter(ct => ct !== tag)
+    if (!userId) return
 
-    // Optimistic update
-    setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: newTags } : t))
+    let newTags: string[] = []
+    let previousTags: string[] = []
 
-    if (userId) {
-      const { error } = await supabase.from('user_topics').update({ custom_tags: newTags }).eq('user_id', userId).eq('topic_id', topicId)
-      if (error) {
-        console.error('Failed to remove tag:', error.message)
-        // Rollback
-        setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: topic.custom_tags } : t))
+    setTopics(prev => prev.map(t => {
+      if (t.topic_id === topicId) {
+        previousTags = t.custom_tags
+        newTags = t.custom_tags.filter(ct => ct !== tag)
+        return { ...t, custom_tags: newTags }
       }
+      return t
+    }))
+
+    const { error } = await supabase.from('user_topics').update({ custom_tags: newTags }).eq('user_id', userId).eq('topic_id', topicId)
+    if (error) {
+      console.error('Failed to remove tag:', error.message)
+      setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: previousTags } : t))
     }
-  }, [userId, topics])
+  }, [userId])
 
   return {
     topics,
