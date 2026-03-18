@@ -69,10 +69,15 @@ async function fetchTopicContent(
   topicId: string,
   label: string,
   subs: string[],
+  customTags: string[] = [],
 ): Promise<FetchedContent | null> {
   if (!anthropicApiKey) return null
 
-  const prompt = `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.
+  const tagsClause = customTags.length > 0
+    ? `\nThe user has specifically requested coverage of these topics/tags: ${customTags.join(', ')}. Prioritize finding news about these.`
+    : ''
+
+  const prompt = `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.${tagsClause}
 
 After searching, return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
 {
@@ -158,6 +163,7 @@ interface TopicParam {
   pinned: boolean
   voice_override: string | null
   sort_order: number
+  custom_tags?: string[]
 }
 
 interface SegmentResult {
@@ -311,7 +317,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const meta = TOPIC_META[ut.topic_id]
       if (!meta) return
 
-      const fetched = await fetchTopicContent(ut.topic_id, meta.label, meta.subs)
+      const fetched = await fetchTopicContent(ut.topic_id, meta.label, meta.subs, ut.custom_tags || [])
       if (!fetched) return
 
       contentFetches++

@@ -50,6 +50,7 @@ export function useEpisodeBuilder(
         pinned: t.pinned,
         voice_override: t.voice_override,
         sort_order: t.sort_order,
+        custom_tags: t.custom_tags || [],
       }))
 
       const response = await fetch('/api/build-episode', {
