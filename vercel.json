@@ -11,8 +11,17 @@
     },
     "api/build-episode.ts": {
       "maxDuration": 120
+    },
+    "api/cron/send-digests.ts": {
+      "maxDuration": 120
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/send-digests",
+      "schedule": "5,20,35,50 * * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
