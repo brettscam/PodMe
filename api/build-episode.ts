@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
+import { TOPIC_META } from './lib/topic-meta'
+import { fetchRssForTopic } from './lib/rss-fetcher'
+import { mergeRssAndWebSearch } from './lib/content-merger'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
@@ -8,20 +11,6 @@ const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ''
 
 function getSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey)
-}
-
-// Topic metadata for web search prompts (derived from TOPIC_CATALOG, no icons)
-const TOPIC_META: Record<string, { label: string; subs: string[] }> = {
-  earnings: { label: 'Markets & Earnings', subs: ['Earnings next week', 'S&P movers', 'IPO pipeline', 'Crypto', 'Sector rotation'] },
-  tech: { label: 'Technology', subs: ['AI/ML', 'Consumer tech', 'Enterprise SaaS', 'Startups', 'Open source'] },
-  world: { label: 'World News', subs: ['Geopolitics', 'Climate', 'Conflict', 'Diplomacy', 'Global health'] },
-  local: { label: 'Bay Area & Marin County', subs: ['Bay Area', 'Marin County', 'School boards', 'Transit', 'Housing'] },
-  business: { label: 'Business & Economy', subs: ['Fed/Rates', 'Labor market', 'M&A', 'Venture capital', 'Real estate'] },
-  science: { label: 'Science & Health', subs: ['Research', 'Space', 'Medicine', 'Nutrition', 'Mental health'] },
-  creative: { label: 'Creative & Culture', subs: ['Photography', 'Design', 'Film', 'Music', 'Books'] },
-  sports: { label: 'Sports', subs: ['NFL', 'NBA', 'MLB', 'F1', 'Golf', 'College'] },
-  travel: { label: 'Travel', subs: ['Destinations', 'Points/Miles', 'Hotels', 'Flight deals'] },
-  entertainment: { label: 'Entertainment', subs: ['Streaming', 'Box office', 'Gaming', 'Podcasts'] },
 }
 
 // Duration targets by length preference (seconds)
@@ -313,30 +302,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       }
 
-      // Content miss — fetch via web search
+      // Content miss — fetch BOTH sources in parallel
       const meta = TOPIC_META[ut.topic_id]
       if (!meta) return
 
-      const fetched = await fetchTopicContent(ut.topic_id, meta.label, meta.subs, ut.custom_tags || [])
-      if (!fetched) return
+      const [rssResult, webResult] = await Promise.allSettled([
+        fetchRssForTopic(ut.topic_id),
+        fetchTopicContent(ut.topic_id, meta.label, meta.subs, ut.custom_tags || []),
+      ])
+
+      const rss = rssResult.status === 'fulfilled' ? rssResult.value : null
+      const web = webResult.status === 'fulfilled' ? webResult.value : null
+
+      const merged = mergeRssAndWebSearch(rss, web)
+      if (!merged) return
 
       contentFetches++
-      const content_hash = hashContent(ut.topic_id, today, fetched.claims)
+      const content_hash = hashContent(ut.topic_id, today, merged.claims)
 
-      // Upsert into topic_content (fire-and-forget, handles race conditions)
       await supabase.from('topic_content').upsert({
         topic_id: ut.topic_id,
         fetch_date: today,
-        title: fetched.title,
-        claims: fetched.claims,
-        sources: fetched.sources,
+        title: merged.title,
+        claims: merged.claims,
+        sources: merged.sources,
         content_hash,
       }, { onConflict: 'topic_id,fetch_date' })
 
       contentMap.set(ut.topic_id, {
-        title: fetched.title,
-        claims: fetched.claims,
-        sources: fetched.sources,
+        title: merged.title,
+        claims: merged.claims,
+        sources: merged.sources,
         content_hash,
       })
     })
