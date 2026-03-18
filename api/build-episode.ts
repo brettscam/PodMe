@@ -271,6 +271,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return a.sort_order - b.sort_order
   })
 
+  // Fail fast if no API key — don't silently return stale fallback content
+  if (!anthropicApiKey) {
+    return res.status(503).json({
+      error: 'ANTHROPIC_API_KEY not configured. Cannot generate fresh episode content.',
+      hint: 'Set ANTHROPIC_API_KEY in your Vercel environment variables.',
+    })
+  }
+
   const supabase = getSupabase()
   const today = new Date().toISOString().split('T')[0]
 

@@ -88,10 +88,17 @@ export function useEpisodeBuilder(
       })
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        const errBody = await response.json().catch(() => ({}))
+        throw new Error(errBody.error || `API error: ${response.status}`)
       }
 
       const data: BuildEpisodeResponse = await response.json()
+
+      // Warn if API returned all fallback content (stale scripts)
+      if (data.cache_stats && data.cache_stats.fallbacks > 0 && data.cache_stats.hits === 0 && data.cache_stats.misses === 0) {
+        console.warn(`Episode used ${data.cache_stats.fallbacks} fallback scripts — content may be stale`)
+      }
+
       setServerEpisode(data.episode)
       setCacheStats(data.cache_stats)
     } catch (err: unknown) {
