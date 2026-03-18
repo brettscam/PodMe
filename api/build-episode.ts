@@ -241,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Accept params from query (GET) or body (POST)
-  const params = req.method === 'GET' ? req.query : req.body
+  const params = req.method === 'GET' ? req.query : (req.body || {})
   const tone = (params.tone as string) || 'mixed'
   const length = (params.length as string) || 'standard'
   const forceRefresh = params.force_refresh === true || params.force_refresh === 'true'
