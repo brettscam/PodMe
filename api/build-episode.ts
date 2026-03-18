@@ -27,18 +27,18 @@ const WEIGHT_MULTIPLIERS: Record<string, number> = {
   brief: 0.5,
 }
 
-// Fallback templates — used when content ingestion + LLM generation both fail
-const FALLBACK_SCRIPTS: Record<string, { title: string; voice: string; duration: number; script: string }> = {
-  earnings: { title: 'Markets & Earnings', voice: 'strategist', duration: 300, script: 'The S&P five hundred finished the week at fifty-three twelve, up one point two percent, with the Nasdaq leading at one point eight percent. NVIDIA was the story of the week — data center revenue hit twenty point two billion, beating consensus by eight hundred million. But the real headline is that inference workloads officially crossed fifty percent of GPU compute. That\'s a structural shift.' },
-  tech: { title: 'Technology', voice: 'correspondent', duration: 260, script: 'Two massive tech stories this week. Apple unveiled Apple Glass at its surprise spring event — lightweight AR glasses that pair with your iPhone, shipping in June. Early hands-on reports say they\'re surprisingly comfortable and the field of view is wider than expected.' },
-  world: { title: 'World News', voice: 'anchor', duration: 240, script: 'The ceasefire talks in Geneva made more progress this week than in any previous round. The key breakthrough is a new framework from Turkish and Brazilian mediators that decouples the territorial question from security guarantees.' },
-  local: { title: 'Bay Area & Marin', voice: 'neighbor', duration: 200, script: 'Good morning, Marin. The San Rafael farmer\'s market is in full swing at its new year-round schedule, eight AM to one PM. If you missed the Housing Element vote, the Board of Supervisors passed it Thursday night.' },
-  business: { title: 'Business & Economy', voice: 'strategist', duration: 240, script: 'Fed Governor Christopher Waller gave a speech that markets are treating as a green light for June. He said the totality of the data is moving in the right direction.' },
-  science: { title: 'Science & Health', voice: 'scottish-mentor', duration: 200, script: 'The European Medicines Agency approved the first in-vivo CRISPR gene therapy — a one-time treatment for sickle cell disease that edits stem cells inside the patient\'s body, no extraction required.' },
-  creative: { title: 'Creative & Culture', voice: 'host', duration: 120, script: 'The Fujifilm-Hasselblad acquisition rumors heated up — DPReview sources say a deal for the medium format division could close by summer.' },
-  sports: { title: 'Sports', voice: 'southern-gentleman', duration: 240, script: 'Selection Sunday is coming and the bracket is taking shape. Duke is the favorite for the top overall seed after winning the ACC tournament.' },
-  travel: { title: 'Travel', voice: 'modern-brand-ambassador', duration: 180, script: 'If you\'re thinking about a spring getaway, some great fares just dropped from SFO. United has roundtrips to Honolulu for two forty-nine through April.' },
-  entertainment: { title: 'Entertainment', voice: 'insider', duration: 180, script: 'Alright, let\'s talk about The Bear. Season Four dropped on Hulu and I binged all ten episodes. Without spoilers — it\'s the best season yet.' },
+// Topic defaults — voice and title only, NO hardcoded scripts (those go stale)
+const TOPIC_DEFAULTS: Record<string, { title: string; voice: string }> = {
+  earnings: { title: 'Markets & Earnings', voice: 'strategist' },
+  tech: { title: 'Technology', voice: 'correspondent' },
+  world: { title: 'World News', voice: 'anchor' },
+  local: { title: 'Bay Area & Marin', voice: 'neighbor' },
+  business: { title: 'Business & Economy', voice: 'strategist' },
+  science: { title: 'Science & Health', voice: 'scottish-mentor' },
+  creative: { title: 'Creative & Culture', voice: 'host' },
+  sports: { title: 'Sports', voice: 'southern-gentleman' },
+  travel: { title: 'Travel', voice: 'modern-brand-ambassador' },
+  entertainment: { title: 'Entertainment', voice: 'insider' },
 }
 
 // --- Content Ingestion ---
@@ -316,7 +316,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const contentChecks = sorted
-    .filter(ut => FALLBACK_SCRIPTS[ut.topic_id])
+    .filter(ut => TOPIC_DEFAULTS[ut.topic_id] || TOPIC_META[ut.topic_id])
     .map(async (ut) => {
       // Check if content exists for today (skipped if force_refresh cleared it above)
       const { data: existing } = await supabase
@@ -370,31 +370,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await Promise.allSettled(contentChecks)
 
   for (const ut of sorted) {
-    const fallback = FALLBACK_SCRIPTS[ut.topic_id]
-    if (!fallback) continue
+    const defaults = TOPIC_DEFAULTS[ut.topic_id]
+    if (!defaults) continue
 
     const baseDuration = DURATION_TARGETS[length] || 180
     const targetDuration = Math.round(baseDuration * (WEIGHT_MULTIPLIERS[ut.weight] || 1))
-    const voice = ut.voice_override || fallback.voice
+    const voice = ut.voice_override || defaults.voice
 
     // Step 1: Check content (already fetched in parallel above)
     const content = contentMap.get(ut.topic_id)
 
     if (!content) {
-      // No content available — use hardcoded fallback
+      // No fresh content — skip this topic entirely (never serve stale hardcoded scripts)
       fallbacks++
-      topicSegments.push({
-        topic_id: ut.topic_id,
-        segment_type: 'topic',
-        title: fallback.title,
-        voice,
-        start_time_seconds: elapsed,
-        duration_seconds: ut.weight === 'brief' ? Math.round(fallback.duration * 0.5) : fallback.duration,
-        script: fallback.script,
-        sources: [],
-        sort_order: topicSegments.length + 1,
-      })
-      elapsed += ut.weight === 'brief' ? Math.round(fallback.duration * 0.5) : fallback.duration
+      console.warn(`No fresh content for ${ut.topic_id} — skipping segment`)
       continue
     }
 
@@ -414,7 +403,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       topicSegments.push({
         topic_id: ut.topic_id,
         segment_type: 'topic',
-        title: content.title || fallback.title,
+        title: content.title || defaults.title,
         voice,
         start_time_seconds: elapsed,
         duration_seconds: cached.duration_seconds,
@@ -430,7 +419,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       cacheMisses++
       const result = await generateScript(
-        content.title || fallback.title,
+        content.title || defaults.title,
         content.claims || [],
         content.sources || [],
         tone,
@@ -452,7 +441,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       topicSegments.push({
         topic_id: ut.topic_id,
         segment_type: 'topic',
-        title: content.title || fallback.title,
+        title: content.title || defaults.title,
         voice,
         start_time_seconds: elapsed,
         duration_seconds: result.duration,
@@ -463,21 +452,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       elapsed += result.duration
     } catch (err) {
       console.error(`Script generation failed for ${ut.topic_id}:`, err)
-      // Fall back to template on error
+      // No fallback — skip this topic, report the failure
       fallbacks++
-      topicSegments.push({
-        topic_id: ut.topic_id,
-        segment_type: 'topic',
-        title: content.title || fallback.title,
-        voice,
-        start_time_seconds: elapsed,
-        duration_seconds: targetDuration,
-        script: fallback.script,
-        sources: content.sources || [],
-        sort_order: topicSegments.length + 1,
-      })
-      elapsed += targetDuration
     }
+  }
+
+  // If no topics produced content, fail with a clear error
+  if (topicSegments.length === 0) {
+    return res.status(502).json({
+      error: `Content fetch failed for all ${fallbacks} topics. No fresh stories could be retrieved.`,
+      hint: 'Check that ANTHROPIC_API_KEY is valid and that web search is working.',
+      cache_stats: { hits: cacheHits, misses: cacheMisses, fallbacks, content_fetches: contentFetches },
+    })
   }
 
   // Build cold open and wrap up

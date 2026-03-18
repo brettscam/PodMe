@@ -381,6 +381,20 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
               </div>
               <span className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Generating...</span>
             </div>
+          ) : generationStatus === 'error' ? (
+            <div className="space-y-2">
+              <p className="text-xs text-red-400 text-center">Audio generation failed. Check ElevenLabs API key.</p>
+              <button
+                onClick={onGenerate || onViewEpisode}
+                className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+                style={{
+                  background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)',
+                  color: 'white',
+                }}
+              >
+                Retry Audio Generation
+              </button>
+            </div>
           ) : (
             <button
               onClick={onGenerate || onViewEpisode}
