@@ -28,3 +28,4 @@ scripts/temp_segments/
 
 # Generated episode audio (large files)
 public/episodes/*.mp3
+supabase/.temp/
