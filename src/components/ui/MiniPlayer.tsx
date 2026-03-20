@@ -371,42 +371,41 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
           )}
         </div>
       ) : (
-        <div className="px-5 py-3">
+        <div className="px-5 py-3 space-y-2">
+          <button
+            onClick={onViewEpisode}
+            className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+            style={{
+              background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)',
+              color: 'white',
+            }}
+          >
+            View Episode Content
+          </button>
           {generationStatus === 'generating' ? (
-            <div className="flex items-center justify-center gap-3 py-3">
+            <div className="flex items-center justify-center gap-3 py-2">
               <div className="flex items-end gap-0.5 h-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="wave-bar" style={{ width: 3, height: 16 }} />
                 ))}
               </div>
-              <span className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Generating...</span>
+              <span className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Generating audio...</span>
             </div>
           ) : generationStatus === 'error' ? (
-            <div className="space-y-2">
-              <p className="text-xs text-red-400 text-center">Audio generation failed. Check ElevenLabs API key.</p>
-              <button
-                onClick={onGenerate || onViewEpisode}
-                className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
-                style={{
-                  background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)',
-                  color: 'white',
-                }}
-              >
-                Retry Audio Generation
-              </button>
-            </div>
-          ) : (
+            <p className="text-xs text-white/40 text-center">Audio generation unavailable — TTS not configured</p>
+          ) : generationStatus !== 'complete' && onGenerate ? (
             <button
-              onClick={onGenerate || onViewEpisode}
-              className="w-full py-3 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+              onClick={onGenerate}
+              className="w-full py-2.5 rounded-xl text-xs font-medium transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
               style={{
-                background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)',
-                color: 'white',
+                background: 'rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.6)',
+                border: '1px solid rgba(255,255,255,0.1)',
               }}
             >
-              Generate Episode Audio
+              Generate Audio (optional)
             </button>
-          )}
+          ) : null}
         </div>
       )}
     </div>
