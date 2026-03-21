@@ -5,13 +5,16 @@ import { fetchRssForTopic, type FetchedRssContent } from '../lib/rss-fetcher.js'
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
+// Use a recent date so the article passes the recency filter
+const recentDate = new Date(Date.now() - 2 * 60 * 60 * 1000).toUTCString()
+
 const MOCK_RSS = `<?xml version="1.0"?>
 <rss version="2.0"><channel>
   <item>
     <title>Breaking: Tech News</title>
     <link>https://example.com/tech1</link>
     <description>Big tech story</description>
-    <pubDate>Tue, 18 Mar 2026 10:00:00 GMT</pubDate>
+    <pubDate>${recentDate}</pubDate>
   </item>
 </channel></rss>`
 
@@ -35,7 +38,7 @@ describe('fetchRssForTopic', () => {
   })
 
   it('filters articles to last 24 hours', async () => {
-    const oldRss = MOCK_RSS.replace('Tue, 18 Mar 2026', 'Mon, 01 Jan 2024')
+    const oldRss = MOCK_RSS.replace(recentDate, 'Mon, 01 Jan 2024 10:00:00 GMT')
     mockFetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve(oldRss),

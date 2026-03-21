@@ -106,12 +106,6 @@ export function useEpisodeBuilder(
       }
 
       const data: BuildEpisodeResponse = await response.json()
-
-      // Reject episodes that are entirely fallback content
-      if (data.cache_stats && data.cache_stats.fallbacks > 0 && data.cache_stats.hits === 0 && data.cache_stats.misses === 0) {
-        throw new Error(`Content fetch failed for all ${data.cache_stats.fallbacks} topics. No fresh content available.`)
-      }
-
       setServerEpisode(data.episode)
       setCacheStats(data.cache_stats)
     } catch (err: unknown) {

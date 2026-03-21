@@ -143,6 +143,8 @@ export default function App() {
             generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
             onGenerate={() => currentEpisode ? generateEpisode(currentEpisode.segments) : refreshEpisode()}
             onRegenerate={handleRegenerate}
+            episodeLoading={episodeLoading}
+            episodeError={episodeError}
           />
         )
       case 'profile':

@@ -57,19 +57,12 @@ interface FetchedContent {
   sources: { outlet: string; domain: string; tier: number; title: string; url: string; published_at: string; cited_claims: string[] }[]
 }
 
-async function fetchTopicContent(
-  topicId: string,
-  label: string,
-  subs: string[],
-  customTags: string[] = [],
-): Promise<FetchedContent | null> {
-  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
+function buildContentPrompt(label: string, subs: string[], customTags: string[]): string {
   const tagsClause = customTags.length > 0
     ? `\nThe user has specifically requested coverage of these topics/tags: ${customTags.join(', ')}. Prioritize finding news about these.`
     : ''
 
-  const prompt = `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.${tagsClause}
+  return `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.${tagsClause}
 
 After searching, return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
 {
@@ -82,7 +75,7 @@ After searching, return a JSON object with this exact structure (no markdown, no
       "tier": 1,
       "title": "Article headline",
       "url": "https://...",
-      "published_at": "2026-03-17T00:00:00Z",
+      "published_at": "${new Date().toISOString().split('T')[0]}T00:00:00Z",
       "cited_claims": ["which claims came from this source"]
     }
   ]
@@ -95,58 +88,156 @@ Source tier guide:
 - Tier 4: Unverified or unknown sources
 
 Include 3-6 claims and 2-4 sources. Each claim should be a specific, factual statement.`
+}
 
+function parseContentResponse(rawText: string, topicId: string): FetchedContent | null {
+  let parsed: FetchedContent
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2025-01-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-
-    if (!response.ok) {
-      console.error(`Content fetch API error for ${topicId}: ${response.status}`)
+    parsed = JSON.parse(rawText)
+  } catch {
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      console.error(`No JSON found in content response for ${topicId}`)
       return null
     }
-
-    const data = await response.json()
-
-    // Extract text from response content blocks
-    const textBlocks = (data.content || []).filter((b: { type: string }) => b.type === 'text')
-    const rawText = textBlocks.map((b: { text: string }) => b.text).join('')
-
-    // Parse JSON — try raw first, then extract from code fences
-    let parsed: FetchedContent
     try {
-      parsed = JSON.parse(rawText)
-    } catch {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        console.error(`No JSON found in content fetch response for ${topicId}`)
-        return null
-      }
       parsed = JSON.parse(jsonMatch[0])
-    }
-
-    // Validate required fields
-    if (!parsed.title || !Array.isArray(parsed.claims) || !Array.isArray(parsed.sources)) {
-      console.error(`Invalid content structure for ${topicId}`)
+    } catch (e) {
+      console.error(`JSON parse failed for ${topicId}:`, e)
       return null
     }
+  }
 
-    return parsed
-  } catch (err) {
-    console.error(`Content fetch failed for ${topicId}:`, err)
+  if (!parsed.title || !Array.isArray(parsed.claims) || !Array.isArray(parsed.sources)) {
+    console.error(`Invalid content structure for ${topicId}`)
     return null
   }
+
+  return parsed
+}
+
+async function fetchTopicContentWithWebSearch(
+  topicId: string,
+  label: string,
+  subs: string[],
+  customTags: string[] = [],
+): Promise<FetchedContent | null> {
+  const prompt = buildContentPrompt(label, subs, customTags)
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2025-01-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '')
+    console.error(`Web search API error for ${topicId}: ${response.status} ${errText}`)
+    return null
+  }
+
+  const data = await response.json()
+  const textBlocks = (data.content || []).filter((b: { type: string }) => b.type === 'text')
+  const rawText = textBlocks.map((b: { text: string }) => b.text).join('')
+
+  return parseContentResponse(rawText, topicId)
+}
+
+async function fetchTopicContentWithoutWebSearch(
+  topicId: string,
+  label: string,
+  subs: string[],
+  customTags: string[] = [],
+): Promise<FetchedContent | null> {
+  const tagsClause = customTags.length > 0
+    ? ` Pay special attention to: ${customTags.join(', ')}.`
+    : ''
+
+  const prompt = `You are a news analyst. Based on your knowledge, provide a summary of recent notable developments about "${label}" covering these subtopics: ${subs.join(', ')}.${tagsClause}
+
+Return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
+{
+  "title": "A headline summarizing the most notable recent development for this topic",
+  "claims": ["specific factual claim 1", "specific factual claim 2", ...],
+  "sources": [
+    {
+      "outlet": "Name of a relevant news outlet",
+      "domain": "example.com",
+      "tier": 2,
+      "title": "Relevant article headline",
+      "url": "https://example.com",
+      "published_at": "${new Date().toISOString().split('T')[0]}T00:00:00Z",
+      "cited_claims": ["which claims relate to this source"]
+    }
+  ]
+}
+
+Include 3-5 claims and 2-3 sources. Each claim should be a specific, factual statement based on recent events.`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '')
+    console.error(`Fallback content API error for ${topicId}: ${response.status} ${errText}`)
+    return null
+  }
+
+  const data = await response.json()
+  const rawText = data.content?.[0]?.text || ''
+
+  return parseContentResponse(rawText, topicId)
+}
+
+async function fetchTopicContent(
+  topicId: string,
+  label: string,
+  subs: string[],
+  customTags: string[] = [],
+): Promise<FetchedContent | null> {
+  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+
+  // Try web search first
+  try {
+    const result = await fetchTopicContentWithWebSearch(topicId, label, subs, customTags)
+    if (result) return result
+    console.warn(`Web search returned no content for ${topicId}, trying fallback...`)
+  } catch (err) {
+    console.error(`Web search failed for ${topicId}:`, err)
+  }
+
+  // Fallback: generate content without web search
+  try {
+    const result = await fetchTopicContentWithoutWebSearch(topicId, label, subs, customTags)
+    if (result) {
+      console.log(`Fallback content generation succeeded for ${topicId}`)
+      return result
+    }
+  } catch (err) {
+    console.error(`Fallback content also failed for ${topicId}:`, err)
+  }
+
+  return null
 }
 
 interface TopicParam {

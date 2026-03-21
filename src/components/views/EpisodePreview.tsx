@@ -33,12 +33,15 @@ interface EpisodePreviewProps {
   generatedAudioUrls?: string[]
   onGenerate?: () => void
   onRegenerate?: () => void
+  episodeLoading?: boolean
+  episodeError?: string | null
 }
 
 export default function EpisodePreview({
   episode, pastEpisodes, shareToken, copied, listenCount,
   onGenerateShare, getShareUrl, onCopy, onShare,
   generationProgress, generatedAudioUrls, onGenerate, onRegenerate,
+  episodeLoading, episodeError,
 }: EpisodePreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -59,18 +62,44 @@ export default function EpisodePreview({
   if (!activeEpisode) {
     return (
       <div className="space-y-4">
-        <div className="rounded-card p-8 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No episode available yet.</p>
-          {onGenerate && (
-            <button
-              onClick={onGenerate}
-              className="mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all-200"
-              style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
-            >
-              Generate Episode
-            </button>
-          )}
-        </div>
+        {episodeLoading ? (
+          <div className="rounded-card p-8 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-end justify-center gap-1 h-6 mb-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="wave-bar" style={{ width: 3, height: 16 }} />
+              ))}
+            </div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Generating your episode...</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Searching news sources and building segments</p>
+          </div>
+        ) : episodeError ? (
+          <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>{episodeError}</p>
+            {onGenerate && (
+              <button
+                onClick={onGenerate}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+                style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-card p-8 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No episode available yet.</p>
+            {onGenerate && (
+              <button
+                onClick={onGenerate}
+                className="mt-4 px-6 py-2.5 rounded-xl text-sm font-semibold transition-all-200"
+                style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
+              >
+                Generate Episode
+              </button>
+            )}
+          </div>
+        )}
       </div>
     )
   }
