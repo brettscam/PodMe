@@ -6,15 +6,15 @@ export interface RssFeed {
 
 const FEED_REGISTRY: Record<string, RssFeed[]> = {
   earnings: [
-    { url: 'https://rss.app/feeds/v1.1/tgmedia-apnews-markets.xml', name: 'AP Markets', tier: 1 },
-    { url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', name: 'MarketWatch', tier: 2 },
     { url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664', name: 'CNBC Finance', tier: 2 },
+    { url: 'https://finance.yahoo.com/news/rssindex', name: 'Yahoo Finance', tier: 2 },
+    { url: 'https://www.ft.com/?format=rss', name: 'Financial Times', tier: 1 },
   ],
   tech: [
-    { url: 'https://feeds.reuters.com/reuters/technologyNews', name: 'Reuters Tech', tier: 1 },
     { url: 'https://feeds.arstechnica.com/arstechnica/technology-lab', name: 'Ars Technica', tier: 2 },
     { url: 'https://www.theverge.com/rss/index.xml', name: 'The Verge', tier: 2 },
     { url: 'https://techcrunch.com/feed/', name: 'TechCrunch', tier: 2 },
+    { url: 'https://www.wired.com/feed/rss', name: 'Wired', tier: 2 },
   ],
   world: [
     { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', name: 'BBC World', tier: 1 },
@@ -26,9 +26,9 @@ const FEED_REGISTRY: Record<string, RssFeed[]> = {
     { url: 'https://www.marinij.com/feed/', name: 'Marin IJ', tier: 3 },
   ],
   business: [
-    { url: 'https://rss.app/feeds/v1.1/tgmedia-apnews-business.xml', name: 'AP Business', tier: 1 },
-    { url: 'https://feeds.bloomberg.com/markets/news.rss', name: 'Bloomberg', tier: 1 },
-    { url: 'https://www.reuters.com/rssFeed/businessNews', name: 'Reuters Business', tier: 1 },
+    { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', name: 'NYT Business', tier: 1 },
+    { url: 'https://feeds.bbci.co.uk/news/business/rss.xml', name: 'BBC Business', tier: 1 },
+    { url: 'https://www.cnbc.com/id/10001147/device/rss/rss.html', name: 'CNBC Business', tier: 2 },
   ],
   science: [
     { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', name: 'NYT Science', tier: 1 },

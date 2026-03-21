@@ -2,8 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { createHash, randomUUID } from 'crypto'
 import { TOPIC_META } from './lib/topic-meta.js'
-import { fetchRssForTopic } from './lib/rss-fetcher.js'
-import { mergeRssAndWebSearch } from './lib/content-merger.js'
+import { fetchRssForTopic, type FetchedRssContent } from './lib/rss-fetcher.js'
+import type { RssArticle } from './lib/rss-parser.js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
@@ -13,176 +13,29 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey)
 }
 
-// Duration targets by length preference (seconds)
-const DURATION_TARGETS: Record<string, number> = {
-  quick: 90,
-  standard: 180,
-  deep: 300,
+// Duration targets by length preference (word counts)
+const WORD_TARGETS: Record<string, number> = {
+  quick: 225,    // ~90 seconds
+  standard: 450, // ~3 minutes
+  deep: 750,     // ~5 minutes
 }
 
-// Weight multipliers for duration
 const WEIGHT_MULTIPLIERS: Record<string, number> = {
   featured: 1.2,
   standard: 1.0,
   brief: 0.5,
 }
 
-// Single voice for all segments — keeps the podcast cohesive
 const DEFAULT_VOICE = 'anchor'
 
-// Topic defaults — title only, NO hardcoded scripts (those go stale)
-const TOPIC_DEFAULTS: Record<string, { title: string }> = {
-  earnings: { title: 'Markets & Earnings' },
-  tech: { title: 'Technology' },
-  world: { title: 'World News' },
-  local: { title: 'Bay Area & Marin' },
-  business: { title: 'Business & Economy' },
-  science: { title: 'Science & Health' },
-  creative: { title: 'Creative & Culture' },
-  sports: { title: 'Sports' },
-  travel: { title: 'Travel' },
-  entertainment: { title: 'Entertainment' },
-}
+// --- Core pipeline: RSS articles → script → polish → episode ---
 
-// --- Content Ingestion ---
-
-function hashContent(topicId: string, fetchDate: string, claims: string[]): string {
-  const input = topicId + fetchDate + JSON.stringify([...claims].sort())
+function hashArticles(topicId: string, date: string, articles: RssArticle[]): string {
+  const input = topicId + date + articles.map(a => a.title + a.url).join('|')
   return createHash('sha256').update(input).digest('hex')
 }
 
-interface FetchedContent {
-  title: string
-  claims: string[]
-  sources: { outlet: string; domain: string; tier: number; title: string; url: string; published_at: string; cited_claims: string[] }[]
-}
-
-function buildContentPrompt(label: string, subs: string[], customTags: string[]): string {
-  const tagsClause = customTags.length > 0
-    ? `\nThe user has specifically requested coverage of these topics/tags: ${customTags.join(', ')}. Prioritize finding news about these.`
-    : ''
-
-  return `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.${tagsClause}
-
-After searching, return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
-{
-  "title": "A short headline summarizing today's top story for this topic",
-  "claims": ["claim 1 with source attribution", "claim 2 with source attribution", ...],
-  "sources": [
-    {
-      "outlet": "Name of the news outlet",
-      "domain": "example.com",
-      "tier": 1,
-      "title": "Article headline",
-      "url": "https://...",
-      "published_at": "${new Date().toISOString().split('T')[0]}T00:00:00Z",
-      "cited_claims": ["which claims came from this source"]
-    }
-  ]
-}
-
-Source tier guide:
-- Tier 1: Wire services, papers of record (AP, Reuters, NYT, WSJ, Financial Times)
-- Tier 2: Major outlets (Bloomberg, BBC, CNN, TechCrunch, The Verge)
-- Tier 3: Niche/trade press, blogs, local outlets
-- Tier 4: Unverified or unknown sources
-
-Include 3-6 claims and 2-4 sources. Each claim should be a specific, factual statement.`
-}
-
-function parseContentResponse(rawText: string, topicId: string): FetchedContent | null {
-  let parsed: FetchedContent
-  try {
-    parsed = JSON.parse(rawText)
-  } catch {
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      console.error(`No JSON found in content response for ${topicId}`)
-      return null
-    }
-    try {
-      parsed = JSON.parse(jsonMatch[0])
-    } catch (e) {
-      console.error(`JSON parse failed for ${topicId}:`, e)
-      return null
-    }
-  }
-
-  if (!parsed.title || !Array.isArray(parsed.claims) || !Array.isArray(parsed.sources)) {
-    console.error(`Invalid content structure for ${topicId}`)
-    return null
-  }
-
-  return parsed
-}
-
-async function fetchTopicContentWithWebSearch(
-  topicId: string,
-  label: string,
-  subs: string[],
-  customTags: string[] = [],
-): Promise<FetchedContent | null> {
-  const prompt = buildContentPrompt(label, subs, customTags)
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': anthropicApiKey,
-      'anthropic-version': '2025-01-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '')
-    console.error(`Web search API error for ${topicId}: ${response.status} ${errText}`)
-    return null
-  }
-
-  const data = await response.json()
-  const textBlocks = (data.content || []).filter((b: { type: string }) => b.type === 'text')
-  const rawText = textBlocks.map((b: { text: string }) => b.text).join('')
-
-  return parseContentResponse(rawText, topicId)
-}
-
-async function fetchTopicContentWithoutWebSearch(
-  topicId: string,
-  label: string,
-  subs: string[],
-  customTags: string[] = [],
-): Promise<FetchedContent | null> {
-  const tagsClause = customTags.length > 0
-    ? ` Pay special attention to: ${customTags.join(', ')}.`
-    : ''
-
-  const prompt = `You are a news analyst. Based on your knowledge, provide a summary of recent notable developments about "${label}" covering these subtopics: ${subs.join(', ')}.${tagsClause}
-
-Return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
-{
-  "title": "A headline summarizing the most notable recent development for this topic",
-  "claims": ["specific factual claim 1", "specific factual claim 2", ...],
-  "sources": [
-    {
-      "outlet": "Name of a relevant news outlet",
-      "domain": "example.com",
-      "tier": 2,
-      "title": "Relevant article headline",
-      "url": "https://example.com",
-      "published_at": "${new Date().toISOString().split('T')[0]}T00:00:00Z",
-      "cited_claims": ["which claims relate to this source"]
-    }
-  ]
-}
-
-Include 3-5 claims and 2-3 sources. Each claim should be a specific, factual statement based on recent events.`
-
+async function callClaude(prompt: string, maxTokens = 1024): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -192,53 +45,174 @@ Include 3-5 claims and 2-3 sources. Each claim should be a specific, factual sta
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
-    console.error(`Fallback content API error for ${topicId}: ${response.status} ${errText}`)
-    return null
+    throw new Error(`Claude API ${response.status}: ${errText}`)
   }
 
   const data = await response.json()
-  const rawText = data.content?.[0]?.text || ''
-
-  return parseContentResponse(rawText, topicId)
+  return data.content?.[0]?.text || ''
 }
 
-async function fetchTopicContent(
-  topicId: string,
-  label: string,
-  subs: string[],
-  customTags: string[] = [],
-): Promise<FetchedContent | null> {
-  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
+// Optional web search enrichment — adds extra context on top of RSS
+async function searchForContext(topicLabel: string, subs: string[], customTags: string[]): Promise<string | null> {
+  const tagsFocus = customTags.length > 0
+    ? ` Focus especially on: ${customTags.join(', ')}.`
+    : ''
 
-  // Try web search first
+  const prompt = `Search for the latest news about "${topicLabel}" (subtopics: ${subs.join(', ')}).${tagsFocus}
+
+Provide a brief summary of the most important developments you find. Include specific facts, figures, and source names. Keep it to 3-5 bullet points.`
+
   try {
-    const result = await fetchTopicContentWithWebSearch(topicId, label, subs, customTags)
-    if (result) return result
-    console.warn(`Web search returned no content for ${topicId}, trying fallback...`)
-  } catch (err) {
-    console.error(`Web search failed for ${topicId}:`, err)
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2025-01-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+
+    if (!response.ok) return null
+
+    const data = await response.json()
+    const textBlocks = (data.content || []).filter((b: { type: string }) => b.type === 'text')
+    return textBlocks.map((b: { text: string }) => b.text).join('') || null
+  } catch {
+    return null
+  }
+}
+
+function formatArticlesForPrompt(articles: RssArticle[], customTags: string[]): string {
+  const lines = articles.map((a, i) =>
+    `${i + 1}. [${a.outlet}] "${a.title}"${a.description ? `\n   ${a.description.substring(0, 300)}` : ''}`
+  )
+
+  let text = lines.join('\n')
+  if (customTags.length > 0) {
+    text += `\n\nUser is especially interested in: ${customTags.join(', ')}`
+  }
+  return text
+}
+
+async function writeSegmentScript(
+  topicLabel: string,
+  articles: RssArticle[],
+  customTags: string[],
+  tone: string,
+  wordTarget: number,
+  webContext: string | null,
+): Promise<{ script: string; duration: number }> {
+  const toneGuide: Record<string, string> = {
+    factual: 'dry reporting style, just the facts, no opinion',
+    mixed: 'reporting with light commentary, conversational but informative',
+    commentary: 'opinionated analysis, strong voice, engaging perspective',
   }
 
-  // Fallback: generate content without web search
+  const webSection = webContext
+    ? `\n\nAdditional context from web search:\n${webContext}`
+    : ''
+
+  const prompt = `Write a podcast segment about ${topicLabel} based on these news articles:
+
+${formatArticlesForPrompt(articles, customTags)}${webSection}
+
+Rules:
+- Tone: ${toneGuide[tone] || toneGuide.mixed}
+- Target length: ~${wordTarget} words
+- Write for spoken delivery. Use spoken numbers ("five hundred" not "500").
+- Reference sources by outlet name naturally (e.g., "according to Reuters" or "the BBC reports").
+- No segment headers, no stage directions, no intro/outro — just the content.
+- Synthesize the articles into a cohesive segment. Don't just list them.
+- The news articles are your primary source. The web context is supplemental — use it to add depth, not replace the articles.
+
+Return ONLY the script text.`
+
+  const script = await callClaude(prompt)
+  const wordCount = script.split(/\s+/).length
+  const duration = Math.round(wordCount / 2.5) // ~2.5 words/sec for natural speech
+
+  return { script, duration }
+}
+
+interface PolishResult {
+  cold_open: string
+  transitions: string[]
+  wrap_up: string
+}
+
+async function polishEpisode(
+  segments: { title: string; script: string }[],
+  tone: string,
+  isWeekend: boolean,
+): Promise<PolishResult | null> {
+  const showType = isWeekend ? 'weekend digest' : 'morning brief'
+
+  const toneGuide: Record<string, string> = {
+    factual: 'Professional and authoritative. No jokes, no filler.',
+    mixed: 'Warm and conversational. Light personality, but informative.',
+    commentary: 'Engaging and opinionated. Strong voice, like a favorite columnist.',
+  }
+
+  const segmentSummaries = segments
+    .map((s, i) => `[Segment ${i + 1}: ${s.title}]\n${s.script}`)
+    .join('\n\n---\n\n')
+
+  const prompt = `You are the show producer for a daily podcast "${showType}".
+Below are the raw topic scripts in order. Write:
+
+1. A cold open (2-3 sentences) teasing the top stories to hook the listener.
+2. A transition line BEFORE each topic (1-2 sentences bridging from previous).
+3. A warm wrap-up (2-3 sentences).
+
+Tone: ${toneGuide[tone] || toneGuide.mixed}
+Day: ${isWeekend ? 'Weekend' : 'Weekday'}
+
+${segmentSummaries}
+
+Return ONLY JSON (no markdown, no code fences):
+{
+  "cold_open": "...",
+  "transitions": ["before segment 1", "before segment 2", ...],
+  "wrap_up": "..."
+}
+
+The transitions array must have exactly ${segments.length} entries.
+Write for spoken delivery.`
+
   try {
-    const result = await fetchTopicContentWithoutWebSearch(topicId, label, subs, customTags)
-    if (result) {
-      console.log(`Fallback content generation succeeded for ${topicId}`)
-      return result
+    const rawText = await callClaude(prompt)
+
+    let parsed: PolishResult
+    try {
+      parsed = JSON.parse(rawText)
+    } catch {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) return null
+      parsed = JSON.parse(jsonMatch[0])
     }
-  } catch (err) {
-    console.error(`Fallback content also failed for ${topicId}:`, err)
-  }
 
-  return null
+    if (!parsed.cold_open || !Array.isArray(parsed.transitions) || !parsed.wrap_up) return null
+    return parsed
+  } catch (err) {
+    console.error('Polish pass failed:', err)
+    return null
+  }
 }
+
+// --- Handler ---
 
 interface TopicParam {
   topic_id: string
@@ -257,177 +231,8 @@ interface SegmentResult {
   start_time_seconds: number
   duration_seconds: number
   script: string
-  sources: unknown[]
+  sources: { outlet: string; domain: string; tier: number; title: string; url: string; published_at: string; cited_claims: string[] }[]
   sort_order: number
-}
-
-async function generateScript(
-  topicTitle: string,
-  claims: string[],
-  sources: unknown[],
-  tone: string,
-  length: string,
-): Promise<{ script: string; duration: number; prompt_tokens: number; completion_tokens: number }> {
-  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-
-  const toneGuide: Record<string, string> = {
-    factual: 'dry reporting style, just the facts, no opinion',
-    mixed: 'reporting with light commentary, conversational but informative',
-    commentary: 'opinionated analysis, strong voice, engaging perspective',
-  }
-
-  const lengthGuide: Record<string, string> = {
-    quick: '2-3 key points, roughly 90 seconds when read aloud (~225 words)',
-    standard: 'full coverage, roughly 180 seconds when read aloud (~450 words)',
-    deep: 'thorough analysis, roughly 300 seconds when read aloud (~750 words)',
-  }
-
-  const prompt = `You are writing a podcast segment script.
-
-Topic: ${topicTitle}
-Key claims/facts:
-${claims.map((c, i) => `${i + 1}. ${c}`).join('\n')}
-
-User preferences:
-- Tone: ${tone} (${toneGuide[tone] || toneGuide.mixed})
-- Length: ${length} (${lengthGuide[length] || lengthGuide.standard})
-
-Write a natural-sounding podcast script. Use spoken numbers ("five hundred" not "500").
-Reference sources by outlet name. No segment headers or stage directions.
-Return ONLY the script text, nothing else.`
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': anthropicApiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  if (!response.ok) {
-    const err = await response.text()
-    throw new Error(`Anthropic API error: ${response.status} ${err}`)
-  }
-
-  const data = await response.json()
-  const script = data.content[0]?.text || ''
-  const wordCount = script.split(/\s+/).length
-  // Rough estimate: 2.5 words per second for natural speech
-  const duration = Math.round(wordCount / 2.5)
-
-  return {
-    script,
-    duration,
-    prompt_tokens: data.usage?.input_tokens || 0,
-    completion_tokens: data.usage?.output_tokens || 0,
-  }
-}
-
-// --- Script Audit Agent: Post-Generation Polish Pass ---
-
-interface PolishResult {
-  cold_open: string
-  transitions: string[]
-  wrap_up: string
-}
-
-async function polishEpisode(
-  topicSegments: SegmentResult[],
-  tone: string,
-  isWeekend: boolean,
-): Promise<PolishResult | null> {
-  if (!anthropicApiKey) return null
-
-  const suffix = isWeekend ? 'weekend digest' : 'morning brief'
-
-  const segmentSummaries = topicSegments
-    .map((s, i) => `[Segment ${i + 1}: ${s.title}]\n${s.script}`)
-    .join('\n\n---\n\n')
-
-  const toneGuide: Record<string, string> = {
-    factual: 'Professional and authoritative. No jokes, no filler.',
-    mixed: 'Warm and conversational. Light personality, but informative.',
-    commentary: 'Engaging and opinionated. Strong voice, like a favorite columnist.',
-  }
-
-  const prompt = `You are the show producer for a daily podcast called "${suffix}".
-Below are the raw topic scripts in order. Write:
-
-1. A compelling cold open (2-3 sentences) that teases the top 2-3 stories to hook the listener. Do NOT list every segment — pick the most interesting angles.
-2. A transition line BEFORE each topic (1-2 sentences bridging from the previous topic or cold open). The first transition introduces the first topic after the cold open.
-3. A warm wrap-up (2-3 sentences) that references what was covered and looks ahead.
-
-Tone: ${tone} (${toneGuide[tone] || toneGuide.mixed})
-Day type: ${isWeekend ? 'Weekend' : 'Weekday'}
-Number of segments: ${topicSegments.length}
-
-Episode segments:
-${segmentSummaries}
-
-Return ONLY a JSON object with this structure (no markdown, no code fences):
-{
-  "cold_open": "the cold open script",
-  "transitions": ["transition before segment 1", "transition before segment 2", ...],
-  "wrap_up": "the wrap-up script"
-}
-
-The transitions array must have exactly ${topicSegments.length} entries (one per segment).
-Write for spoken delivery — natural, no written-style phrasing.`
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-
-    if (!response.ok) {
-      console.error(`Polish pass API error: ${response.status}`)
-      return null
-    }
-
-    const data = await response.json()
-    const rawText = (data.content || [])
-      .filter((b: { type: string }) => b.type === 'text')
-      .map((b: { text: string }) => b.text)
-      .join('')
-
-    let parsed: PolishResult
-    try {
-      parsed = JSON.parse(rawText)
-    } catch {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
-        console.error('No JSON found in polish pass response')
-        return null
-      }
-      parsed = JSON.parse(jsonMatch[0])
-    }
-
-    if (!parsed.cold_open || !Array.isArray(parsed.transitions) || !parsed.wrap_up) {
-      console.error('Invalid polish pass structure')
-      return null
-    }
-
-    return parsed
-  } catch (err) {
-    console.error('Polish pass failed:', err)
-    return null
-  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -435,7 +240,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // Accept params from query (GET) or body (POST)
   const params = req.method === 'GET' ? req.query : (req.body || {})
   const tone = (params.tone as string) || 'mixed'
   const length = (params.length as string) || 'standard'
@@ -443,16 +247,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = params.user_id as string | undefined
   const topicsParam = params.topics as string | TopicParam[] | undefined
   const defaultVoice = (params.default_voice as string) || DEFAULT_VOICE
-  const dateOverride = params.date as string | undefined // YYYY-MM-DD for testing past dates
+  const dateOverride = params.date as string | undefined
 
   if (!topicsParam) {
     return res.status(400).json({ error: 'Missing topics parameter' })
   }
 
-  // Parse topics: either JSON array or comma-separated topic IDs
   let topics: TopicParam[]
   if (typeof topicsParam === 'string') {
-    // Simple comma-separated: "earnings,tech,world"
     topics = topicsParam.split(',').map((id, i) => ({
       topic_id: id.trim(),
       weight: i === 0 ? 'featured' as const : 'standard' as const,
@@ -464,6 +266,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     topics = topicsParam
   }
 
+  if (!anthropicApiKey) {
+    return res.status(503).json({
+      error: 'ANTHROPIC_API_KEY not configured.',
+      hint: 'Set ANTHROPIC_API_KEY in your Vercel environment variables.',
+    })
+  }
+
   // Sort: pinned first, then by weight, then sort_order
   const weightOrder: Record<string, number> = { featured: 0, standard: 1, brief: 2 }
   const sorted = [...topics].sort((a, b) => {
@@ -472,373 +281,334 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return a.sort_order - b.sort_order
   })
 
-  // Fail fast if no API key — don't silently return stale fallback content
-  if (!anthropicApiKey) {
-    return res.status(503).json({
-      error: 'ANTHROPIC_API_KEY not configured. Cannot generate fresh episode content.',
-      hint: 'Set ANTHROPIC_API_KEY in your Vercel environment variables.',
-    })
-  }
-
-  // Fail fast if Supabase not configured
-  if (!supabaseUrl || !supabaseServiceKey) {
-    return res.status(503).json({
-      error: 'Supabase not configured. Cannot cache or retrieve episode content.',
-      hint: 'Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your Vercel environment variables.',
-    })
-  }
-
   try {
+    const supabase = supabaseUrl && supabaseServiceKey ? getSupabase() : null
+    const today = dateOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride)
+      ? dateOverride
+      : new Date().toISOString().split('T')[0]
 
-  const supabase = getSupabase()
-  const today = dateOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride) ? dateOverride : new Date().toISOString().split('T')[0]
+    // --- Step 1: Fetch RSS for all topics in parallel ---
+    const rssResults = await Promise.allSettled(
+      sorted.map(async (ut) => {
+        const topicId = ut.topic_id
+        if (!TOPIC_META[topicId]) return { topicId, rss: null }
 
-  let cacheHits = 0
-  let cacheMisses = 0
-  let fallbacks = 0
-  let contentFetches = 0
+        // Check Supabase cache first (if available)
+        if (supabase && !forceRefresh) {
+          const { data: cached } = await supabase
+            .from('topic_content')
+            .select('*')
+            .eq('topic_id', topicId)
+            .eq('fetch_date', today)
+            .single()
 
-  // Build segments
-  let elapsed = 50 // after cold open
-  const topicSegments: SegmentResult[] = []
-
-  // Step 0: Fetch missing content in parallel for all topics
-  const contentMap = new Map<string, { title: string; claims: string[]; sources: unknown[]; content_hash: string }>()
-
-  // If force_refresh, delete today's cached content so we re-fetch everything
-  if (forceRefresh) {
-    await supabase
-      .from('topic_content')
-      .delete()
-      .eq('fetch_date', today)
-  }
-
-  const contentChecks = sorted
-    .filter(ut => TOPIC_DEFAULTS[ut.topic_id] || TOPIC_META[ut.topic_id])
-    .map(async (ut) => {
-      // Check if content exists for today (skipped if force_refresh cleared it above)
-      const { data: existing } = await supabase
-        .from('topic_content')
-        .select('*')
-        .eq('topic_id', ut.topic_id)
-        .eq('fetch_date', today)
-        .single()
-
-      // If cached content exists but custom_tags changed, re-fetch
-      const tagsHash = (ut.custom_tags || []).sort().join(',')
-      const cachedTagsHash = (existing?.custom_tags_hash as string) || ''
-
-      if (existing && tagsHash === cachedTagsHash) {
-        contentMap.set(ut.topic_id, existing)
-        return
-      }
-
-      // Content miss — fetch BOTH sources in parallel
-      const meta = TOPIC_META[ut.topic_id]
-      if (!meta) return
-
-      const [rssResult, webResult] = await Promise.allSettled([
-        fetchRssForTopic(ut.topic_id),
-        fetchTopicContent(ut.topic_id, meta.label, meta.subs, ut.custom_tags || []),
-      ])
-
-      const rss = rssResult.status === 'fulfilled' ? rssResult.value : null
-      const web = webResult.status === 'fulfilled' ? webResult.value : null
-
-      if (!rss && !web) {
-        console.warn(`Both RSS and web search failed for ${ut.topic_id}, retrying web search...`)
-        // Retry web search once if both failed
-        try {
-          const retryWeb = await fetchTopicContent(ut.topic_id, meta.label, meta.subs, ut.custom_tags || [])
-          if (retryWeb) {
-            const merged = mergeRssAndWebSearch(null, retryWeb)
-            if (merged) {
-              contentFetches++
-              const content_hash = hashContent(ut.topic_id, today, merged.claims)
-              const customTagsHash = (ut.custom_tags || []).sort().join(',')
-              await supabase.from('topic_content').upsert({
-                topic_id: ut.topic_id, fetch_date: today, title: merged.title,
-                claims: merged.claims, sources: merged.sources, content_hash, custom_tags_hash: customTagsHash,
-              }, { onConflict: 'topic_id,fetch_date' })
-              contentMap.set(ut.topic_id, { title: merged.title, claims: merged.claims, sources: merged.sources, content_hash })
-            }
+          if (cached && cached.claims?.length > 0) {
+            return { topicId, cached }
           }
-        } catch (retryErr) {
-          console.error(`Web search retry also failed for ${ut.topic_id}:`, retryErr)
         }
-        return
+
+        const rss = await fetchRssForTopic(topicId)
+        return { topicId, rss }
+      })
+    )
+
+    // Collect RSS articles per topic
+    const topicArticles = new Map<string, { articles: RssArticle[]; fromCache: boolean; cachedData?: Record<string, unknown> }>()
+    const fetchErrors: string[] = []
+
+    for (const result of rssResults) {
+      if (result.status !== 'fulfilled') continue
+      const { topicId, rss, cached } = result.value as { topicId: string; rss?: FetchedRssContent | null; cached?: Record<string, unknown> }
+
+      if (cached) {
+        topicArticles.set(topicId, { articles: [], fromCache: true, cachedData: cached })
+      } else if (rss && rss.articles.length > 0) {
+        topicArticles.set(topicId, { articles: rss.articles, fromCache: false })
+
+        // Cache the RSS content in Supabase for later
+        if (supabase) {
+          const claims = rss.articles.map(a => a.description ? `${a.title}: ${a.description.substring(0, 200)}` : a.title)
+          const sources = rss.articles.map(a => ({
+            outlet: a.outlet,
+            domain: new URL(a.url).hostname.replace('www.', ''),
+            tier: a.tier,
+            title: a.title,
+            url: a.url,
+            published_at: a.published_at,
+            cited_claims: [a.title],
+          }))
+          const contentHash = hashArticles(topicId, today, rss.articles)
+
+          supabase.from('topic_content').upsert({
+            topic_id: topicId,
+            fetch_date: today,
+            title: rss.articles[0].title,
+            claims,
+            sources,
+            content_hash: contentHash,
+          }, { onConflict: 'topic_id,fetch_date' }).then(() => {}).catch(e => console.error(`Cache write failed for ${topicId}:`, e))
+        }
+      } else {
+        fetchErrors.push(topicId)
       }
-
-      const merged = mergeRssAndWebSearch(rss, web)
-      if (!merged) return
-
-      contentFetches++
-      const content_hash = hashContent(ut.topic_id, today, merged.claims)
-
-      const customTagsHash = (ut.custom_tags || []).sort().join(',')
-      await supabase.from('topic_content').upsert({
-        topic_id: ut.topic_id,
-        fetch_date: today,
-        title: merged.title,
-        claims: merged.claims,
-        sources: merged.sources,
-        content_hash,
-        custom_tags_hash: customTagsHash,
-      }, { onConflict: 'topic_id,fetch_date' })
-
-      contentMap.set(ut.topic_id, {
-        title: merged.title,
-        claims: merged.claims,
-        sources: merged.sources,
-        content_hash,
-      })
-    })
-
-  // Wait for all content fetches to complete
-  await Promise.allSettled(contentChecks)
-
-  // Log content fetch results
-  const fetchedTopics = sorted.map(ut => ut.topic_id).filter(id => contentMap.has(id))
-  const missingTopics = sorted.map(ut => ut.topic_id).filter(id => !contentMap.has(id))
-  console.log(`Content fetch results: ${fetchedTopics.length} succeeded [${fetchedTopics.join(',')}], ${missingTopics.length} failed [${missingTopics.join(',')}]`)
-
-  for (const ut of sorted) {
-    const defaults = TOPIC_DEFAULTS[ut.topic_id]
-    if (!defaults) continue
-
-    const baseDuration = DURATION_TARGETS[length] || 180
-    const targetDuration = Math.round(baseDuration * (WEIGHT_MULTIPLIERS[ut.weight] || 1))
-    const voice = defaultVoice
-
-    // Step 1: Check content (already fetched in parallel above)
-    const content = contentMap.get(ut.topic_id)
-
-    if (!content) {
-      // No fresh content — skip this topic entirely (never serve stale hardcoded scripts)
-      fallbacks++
-      console.warn(`No fresh content for ${ut.topic_id} — skipping segment`)
-      continue
     }
 
-    // Step 2: Check script cache
-    const contentHash = content.content_hash || hashContent(ut.topic_id, today, content.claims || [])
-    const { data: cached } = await supabase
-      .from('generated_scripts')
-      .select('*')
-      .eq('content_hash', contentHash)
-      .eq('tone', tone)
-      .eq('length', length)
-      .single()
+    console.log(`RSS fetch: ${topicArticles.size} topics with content, ${fetchErrors.length} failed [${fetchErrors.join(',')}]`)
 
-    if (cached) {
-      // Cache HIT
-      cacheHits++
-      topicSegments.push({
-        topic_id: ut.topic_id,
-        segment_type: 'topic',
-        title: content.title || defaults.title,
-        voice,
-        start_time_seconds: elapsed,
-        duration_seconds: cached.duration_seconds,
-        script: cached.script,
-        sources: content.sources || [],
-        sort_order: topicSegments.length + 1,
+    if (topicArticles.size === 0) {
+      return res.status(502).json({
+        error: `RSS fetch failed for all ${sorted.length} topics. No articles could be retrieved.`,
+        failed_topics: fetchErrors,
+        hint: 'RSS feeds may be temporarily unavailable. Try again shortly.',
       })
-      elapsed += cached.duration_seconds
-      continue
     }
 
-    // Step 3: Cache MISS — generate with LLM
-    try {
-      cacheMisses++
-      const result = await generateScript(
-        content.title || defaults.title,
-        content.claims || [],
-        content.sources || [],
-        tone,
-        length,
+    // --- Step 2: Kick off web search enrichment in parallel (best-effort) ---
+    const webContextMap = new Map<string, Promise<string | null>>()
+    for (const ut of sorted) {
+      if (!topicArticles.has(ut.topic_id)) continue
+      const meta = TOPIC_META[ut.topic_id]
+      if (!meta) continue
+      // Fire and forget — we'll await these when generating scripts
+      webContextMap.set(
+        ut.topic_id,
+        searchForContext(meta.label, meta.subs, ut.custom_tags || []).catch(() => null),
       )
-
-      // Store in cache (fire-and-forget)
-      supabase.from('generated_scripts').insert({
-        content_hash: contentHash,
-        tone,
-        length,
-        script: result.script,
-        duration_seconds: result.duration,
-        model_used: 'claude-haiku-4-5-20251001',
-        prompt_tokens: result.prompt_tokens,
-        completion_tokens: result.completion_tokens,
-      }).then(() => {}).catch((e: unknown) => console.error('Script cache insert failed:', e))
-
-      topicSegments.push({
-        topic_id: ut.topic_id,
-        segment_type: 'topic',
-        title: content.title || defaults.title,
-        voice,
-        start_time_seconds: elapsed,
-        duration_seconds: result.duration,
-        script: result.script,
-        sources: content.sources || [],
-        sort_order: topicSegments.length + 1,
-      })
-      elapsed += result.duration
-    } catch (err) {
-      console.error(`Script generation failed for ${ut.topic_id}:`, err)
-      // No fallback — skip this topic, report the failure
-      fallbacks++
     }
-  }
 
-  // If no topics produced content, fail with a clear error
-  if (topicSegments.length === 0) {
-    return res.status(502).json({
-      error: `Content fetch failed for all ${fallbacks} topics. No fresh stories could be retrieved.`,
-      hint: 'Check that ANTHROPIC_API_KEY is valid and that web search is working.',
-      cache_stats: { hits: cacheHits, misses: cacheMisses, fallbacks, content_fetches: contentFetches },
-    })
-  }
+    // --- Step 3: Generate scripts from RSS articles + web context ---
+    const topicSegments: SegmentResult[] = []
+    let elapsed = 0
+    let scriptErrors = 0
 
-  // Build cold open, transitions, and wrap-up via polish pass
-  const now = dateOverride ? new Date(dateOverride + 'T12:00:00Z') : new Date()
-  const isWeekend = now.getDay() === 0 || now.getDay() === 6
-  const suffix = isWeekend ? 'weekend digest' : 'morning brief'
+    for (const ut of sorted) {
+      const entry = topicArticles.get(ut.topic_id)
+      if (!entry) continue
 
-  // Run the Script Audit Agent — generates cold open, transitions, wrap-up
-  const polished = await polishEpisode(topicSegments, tone, isWeekend)
+      const meta = TOPIC_META[ut.topic_id]
+      if (!meta) continue
 
-  const coldOpenScript = polished?.cold_open
-    || `Good morning, and welcome to your ${suffix}. We've got ${topicSegments.length} segments for you today. Let's get into it.`
-  const wrapUpScript = polished?.wrap_up
-    || `That's your ${suffix}. We'll see you ${isWeekend ? 'Monday morning' : 'tomorrow'} with a fresh episode. Have a wonderful ${isWeekend ? 'weekend' : 'day'}.`
+      const baseWords = WORD_TARGETS[length] || 450
+      const wordTarget = Math.round(baseWords * (WEIGHT_MULTIPLIERS[ut.weight] || 1))
 
-  const coldOpenWords = coldOpenScript.split(/\s+/).length
-  const coldOpenDuration = Math.round(coldOpenWords / 2.5)
-  const wrapUpWords = wrapUpScript.split(/\s+/).length
-  const wrapUpDuration = Math.round(wrapUpWords / 2.5)
+      // Check script cache if we have cached content
+      if (entry.fromCache && entry.cachedData && supabase) {
+        const cached = entry.cachedData
+        const contentHash = (cached.content_hash as string) || ''
 
-  // Inject transitions into topic scripts if polish pass succeeded
-  if (polished?.transitions) {
-    for (let i = 0; i < topicSegments.length; i++) {
-      const transition = polished.transitions[i]
-      if (transition) {
-        topicSegments[i].script = transition + '\n\n' + topicSegments[i].script
-        // Recalculate duration with transition
-        const newWords = topicSegments[i].script.split(/\s+/).length
-        topicSegments[i].duration_seconds = Math.round(newWords / 2.5)
+        const { data: scriptCache } = await supabase
+          .from('generated_scripts')
+          .select('*')
+          .eq('content_hash', contentHash)
+          .eq('tone', tone)
+          .eq('length', length)
+          .single()
+
+        if (scriptCache) {
+          topicSegments.push({
+            topic_id: ut.topic_id,
+            segment_type: 'topic',
+            title: (cached.title as string) || meta.label,
+            voice: defaultVoice,
+            start_time_seconds: elapsed,
+            duration_seconds: scriptCache.duration_seconds,
+            script: scriptCache.script,
+            sources: (cached.sources as SegmentResult['sources']) || [],
+            sort_order: topicSegments.length + 1,
+          })
+          elapsed += scriptCache.duration_seconds
+          continue
+        }
       }
-    }
-  }
 
-  // Recalculate elapsed time with updated durations
-  let recalcElapsed = coldOpenDuration
-  for (const seg of topicSegments) {
-    seg.start_time_seconds = recalcElapsed
-    recalcElapsed += seg.duration_seconds
-  }
-
-  const coldOpen: SegmentResult = {
-    topic_id: null,
-    segment_type: 'cold_open',
-    title: 'Cold Open',
-    voice: defaultVoice,
-    start_time_seconds: 0,
-    duration_seconds: coldOpenDuration,
-    script: coldOpenScript,
-    sources: [],
-    sort_order: 0,
-  }
-
-  const wrapUp: SegmentResult = {
-    topic_id: null,
-    segment_type: 'wrap_up',
-    title: 'Wrap & Look-Ahead',
-    voice: defaultVoice,
-    start_time_seconds: recalcElapsed,
-    duration_seconds: wrapUpDuration,
-    script: wrapUpScript,
-    sources: [],
-    sort_order: topicSegments.length + 1,
-  }
-
-  const allSegments = [coldOpen, ...topicSegments, wrapUp]
-  const totalMinutes = Math.round((recalcElapsed + wrapUpDuration) / 60)
-
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-  const episodeTitle = `${dateStr} — ${isWeekend ? 'Weekend Digest' : 'Morning Brief'}`
-
-  const episodeData = {
-    title: episodeTitle,
-    date: today,
-    cadence: isWeekend ? 'weekly' : 'daily',
-    tone,
-    estimated_minutes: totalMinutes,
-    status: 'ready' as const,
-    show_notes: {
-      segments: topicSegments.map(s => ({
-        title: s.title,
-        sources: s.sources,
-      })),
-      correction_notes: [],
-      source_summary: {
-        total_articles: topicSegments.length * 2,
-        total_outlets: topicSegments.length + 2,
-        tier_1_count: Math.ceil(topicSegments.length * 0.5),
-        tier_2_count: Math.ceil(topicSegments.length * 0.4),
-        tier_3_count: Math.max(1, Math.floor(topicSegments.length * 0.1)),
-      },
-    },
-    segments: allSegments,
-  }
-
-  // Save to Supabase so subsequent page loads are instant
-  if (userId) {
-    try {
-      const episodeId = randomUUID()
-      await supabase.from('episodes').insert({
-        id: episodeId,
-        user_id: userId,
-        title: episodeData.title,
-        date: episodeData.date,
-        cadence: episodeData.cadence,
-        tone: episodeData.tone,
-        estimated_minutes: episodeData.estimated_minutes,
-        show_notes: episodeData.show_notes,
-        status: 'ready',
-      })
-
-      await supabase.from('episode_segments').insert(
-        allSegments.map((s, i) => ({
-          id: randomUUID(),
-          episode_id: episodeId,
-          topic_id: s.topic_id,
-          segment_type: s.segment_type,
-          title: s.title,
-          voice: s.voice,
-          start_time_seconds: s.start_time_seconds,
-          duration_seconds: s.duration_seconds,
-          script: s.script,
-          sources: s.sources,
-          sort_order: i,
+      // Build articles list (from RSS or from cached claims)
+      let articles = entry.articles
+      if (entry.fromCache && entry.cachedData && articles.length === 0) {
+        const claims = (entry.cachedData.claims as string[]) || []
+        articles = claims.map(c => ({
+          title: c.split(':')[0] || c,
+          description: c,
+          url: '',
+          published_at: today,
+          outlet: 'cached',
+          tier: 2 as const,
         }))
-      )
-    } catch (saveErr) {
-      console.error('Failed to cache episode to Supabase:', saveErr)
+      }
+
+      if (articles.length === 0) continue
+
+      try {
+        // Await web search context (already running in parallel)
+        const webContext = await (webContextMap.get(ut.topic_id) || Promise.resolve(null))
+
+        const { script, duration } = await writeSegmentScript(
+          meta.label, articles, ut.custom_tags || [], tone, wordTarget, webContext,
+        )
+
+        // Cache the script
+        if (supabase) {
+          const contentHash = entry.fromCache && entry.cachedData
+            ? (entry.cachedData.content_hash as string) || ''
+            : hashArticles(ut.topic_id, today, entry.articles)
+
+          if (contentHash) {
+            supabase.from('generated_scripts').insert({
+              content_hash: contentHash, tone, length, script,
+              duration_seconds: duration, model_used: 'claude-haiku-4-5-20251001',
+            }).then(() => {}).catch(e => console.error('Script cache failed:', e))
+          }
+        }
+
+        const sources = entry.articles.map(a => ({
+          outlet: a.outlet,
+          domain: a.url ? new URL(a.url).hostname.replace('www.', '') : 'unknown',
+          tier: a.tier as number,
+          title: a.title,
+          url: a.url,
+          published_at: a.published_at,
+          cited_claims: [a.title],
+        }))
+
+        topicSegments.push({
+          topic_id: ut.topic_id,
+          segment_type: 'topic',
+          title: entry.articles[0]?.title || meta.label,
+          voice: defaultVoice,
+          start_time_seconds: elapsed,
+          duration_seconds: duration,
+          script,
+          sources,
+          sort_order: topicSegments.length + 1,
+        })
+        elapsed += duration
+      } catch (err) {
+        console.error(`Script generation failed for ${ut.topic_id}:`, err)
+        scriptErrors++
+      }
     }
-  }
 
-  return res.status(200).json({
-    episode: episodeData,
-    cache_stats: {
-      hits: cacheHits,
-      misses: cacheMisses,
-      fallbacks,
-      content_fetches: contentFetches,
-    },
-  })
+    if (topicSegments.length === 0) {
+      return res.status(502).json({
+        error: 'Script generation failed for all topics with content.',
+        hint: 'Check ANTHROPIC_API_KEY is valid.',
+      })
+    }
 
+    // --- Step 3: Polish — cold open, transitions, wrap-up ---
+    const now = dateOverride ? new Date(dateOverride + 'T12:00:00Z') : new Date()
+    const isWeekend = now.getDay() === 0 || now.getDay() === 6
+    const showType = isWeekend ? 'weekend digest' : 'morning brief'
+
+    const polished = await polishEpisode(
+      topicSegments.map(s => ({ title: s.title, script: s.script })),
+      tone,
+      isWeekend,
+    )
+
+    // Inject transitions into scripts
+    if (polished?.transitions) {
+      for (let i = 0; i < topicSegments.length; i++) {
+        const transition = polished.transitions[i]
+        if (transition) {
+          topicSegments[i].script = transition + '\n\n' + topicSegments[i].script
+          const wordCount = topicSegments[i].script.split(/\s+/).length
+          topicSegments[i].duration_seconds = Math.round(wordCount / 2.5)
+        }
+      }
+    }
+
+    const coldOpenScript = polished?.cold_open
+      || `Good morning, welcome to your ${showType}. We've got ${topicSegments.length} stories for you today. Let's get into it.`
+    const wrapUpScript = polished?.wrap_up
+      || `That's your ${showType}. See you ${isWeekend ? 'Monday morning' : 'tomorrow'}. Have a great ${isWeekend ? 'weekend' : 'day'}.`
+
+    const coldOpenDuration = Math.round(coldOpenScript.split(/\s+/).length / 2.5)
+    const wrapUpDuration = Math.round(wrapUpScript.split(/\s+/).length / 2.5)
+
+    // Recalculate timing
+    let runningTime = coldOpenDuration
+    for (const seg of topicSegments) {
+      seg.start_time_seconds = runningTime
+      runningTime += seg.duration_seconds
+    }
+
+    const coldOpen: SegmentResult = {
+      topic_id: null, segment_type: 'cold_open', title: 'Cold Open',
+      voice: defaultVoice, start_time_seconds: 0, duration_seconds: coldOpenDuration,
+      script: coldOpenScript, sources: [], sort_order: 0,
+    }
+
+    const wrapUp: SegmentResult = {
+      topic_id: null, segment_type: 'wrap_up', title: 'Wrap & Look-Ahead',
+      voice: defaultVoice, start_time_seconds: runningTime, duration_seconds: wrapUpDuration,
+      script: wrapUpScript, sources: [], sort_order: topicSegments.length + 1,
+    }
+
+    const allSegments = [coldOpen, ...topicSegments, wrapUp]
+    const totalMinutes = Math.round((runningTime + wrapUpDuration) / 60)
+
+    const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const episodeTitle = `${dateStr} — ${isWeekend ? 'Weekend Digest' : 'Morning Brief'}`
+
+    // Compute real source summary from actual articles
+    const allSources = topicSegments.flatMap(s => s.sources)
+    const uniqueOutlets = new Set(allSources.map(s => s.outlet))
+
+    const episodeData = {
+      title: episodeTitle,
+      date: today,
+      cadence: isWeekend ? 'weekly' : 'daily',
+      tone,
+      estimated_minutes: totalMinutes,
+      status: 'ready' as const,
+      show_notes: {
+        segments: topicSegments.map(s => ({ title: s.title, sources: s.sources })),
+        correction_notes: [],
+        source_summary: {
+          total_articles: allSources.length,
+          total_outlets: uniqueOutlets.size,
+          tier_1_count: allSources.filter(s => s.tier === 1).length,
+          tier_2_count: allSources.filter(s => s.tier === 2).length,
+          tier_3_count: allSources.filter(s => s.tier === 3).length,
+        },
+      },
+      segments: allSegments,
+    }
+
+    // Save to Supabase
+    if (supabase && userId) {
+      try {
+        const episodeId = randomUUID()
+        await supabase.from('episodes').insert({
+          id: episodeId, user_id: userId, title: episodeData.title,
+          date: episodeData.date, cadence: episodeData.cadence, tone: episodeData.tone,
+          estimated_minutes: episodeData.estimated_minutes, show_notes: episodeData.show_notes,
+          status: 'ready',
+        })
+        await supabase.from('episode_segments').insert(
+          allSegments.map((s, i) => ({
+            id: randomUUID(), episode_id: episodeId, topic_id: s.topic_id,
+            segment_type: s.segment_type, title: s.title, voice: s.voice,
+            start_time_seconds: s.start_time_seconds, duration_seconds: s.duration_seconds,
+            script: s.script, sources: s.sources, sort_order: i,
+          }))
+        )
+      } catch (saveErr) {
+        console.error('Failed to save episode:', saveErr)
+      }
+    }
+
+    return res.status(200).json({
+      episode: episodeData,
+      cache_stats: {
+        topics_with_content: topicArticles.size,
+        topics_failed: fetchErrors.length,
+        segments_generated: topicSegments.length,
+        script_errors: scriptErrors,
+      },
+    })
   } catch (err) {
-    console.error('build-episode handler error:', err)
+    console.error('build-episode error:', err)
     return res.status(500).json({ error: err instanceof Error ? err.message : 'Internal server error' })
   }
 }

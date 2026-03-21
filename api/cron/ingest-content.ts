@@ -2,12 +2,10 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
 import { fetchRssForTopic } from '../lib/rss-fetcher.js'
-import { mergeRssAndWebSearch } from '../lib/content-merger.js'
 import { TOPIC_META } from '../lib/topic-meta.js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ''
 const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
 
 function hashContent(topicId: string, fetchDate: string, claims: string[]): string {
@@ -15,50 +13,10 @@ function hashContent(topicId: string, fetchDate: string, claims: string[]): stri
   return createHash('sha256').update(input).digest('hex')
 }
 
-async function fetchTopicContentViaWebSearch(
-  topicId: string, label: string, subs: string[],
-): Promise<{ title: string; claims: string[]; sources: any[] } | null> {
-  if (!anthropicApiKey) throw new Error('ANTHROPIC_API_KEY not configured')
-  const prompt = `Search for the latest news about "${label}". Focus on these subtopics: ${subs.join(', ')}.
-After searching, return a JSON object with this exact structure (no markdown, no code fences, just raw JSON):
-{"title":"headline","claims":["claim 1","claim 2"],"sources":[{"outlet":"Name","domain":"example.com","tier":1,"title":"Article","url":"https://...","published_at":"2026-03-18T00:00:00Z","cited_claims":["claim 1"]}]}
-Include 3-6 claims and 2-4 sources.`
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2025-01-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    if (!response.ok) return null
-    const data = await response.json()
-    const textBlocks = (data.content || []).filter((b: any) => b.type === 'text')
-    const rawText = textBlocks.map((b: any) => b.text).join('')
-    let parsed
-    try { parsed = JSON.parse(rawText) } catch {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) return null
-      parsed = JSON.parse(jsonMatch[0])
-    }
-    if (!parsed.title || !Array.isArray(parsed.claims)) return null
-    return parsed
-  } catch { return null }
-}
-
 export interface IngestionResult {
   topicId: string
   status: 'cached' | 'ingested' | 'failed'
-  articlesFromRss?: number
-  claimsFromWeb?: number
+  articleCount?: number
 }
 
 export async function ingestAllTopics(today: string): Promise<IngestionResult[]> {
@@ -67,6 +25,7 @@ export async function ingestAllTopics(today: string): Promise<IngestionResult[]>
 
   const results = await Promise.allSettled(
     topicIds.map(async (topicId): Promise<IngestionResult> => {
+      // Skip if already cached for today
       const { data: existing } = await supabase
         .from('topic_content')
         .select('id')
@@ -78,36 +37,40 @@ export async function ingestAllTopics(today: string): Promise<IngestionResult[]>
         return { topicId, status: 'cached' }
       }
 
-      const meta = TOPIC_META[topicId]
-      const [rssResult, webResult] = await Promise.allSettled([
-        fetchRssForTopic(topicId),
-        fetchTopicContentViaWebSearch(topicId, meta.label, meta.subs),
-      ])
+      // Fetch RSS articles
+      const rss = await fetchRssForTopic(topicId)
 
-      const rss = rssResult.status === 'fulfilled' ? rssResult.value : null
-      const web = webResult.status === 'fulfilled' ? webResult.value : null
-      const merged = mergeRssAndWebSearch(rss, web)
-
-      if (!merged) {
+      if (!rss || rss.articles.length === 0) {
+        console.warn(`No RSS articles for ${topicId}`)
         return { topicId, status: 'failed' }
       }
 
-      const content_hash = hashContent(topicId, today, merged.claims)
+      // Store articles as claims/sources for the build-episode pipeline
+      const claims = rss.articles.map(a =>
+        a.description ? `${a.title}: ${a.description.substring(0, 200)}` : a.title
+      )
+      const sources = rss.articles.map(a => ({
+        outlet: a.outlet,
+        domain: new URL(a.url).hostname.replace('www.', ''),
+        tier: a.tier,
+        title: a.title,
+        url: a.url,
+        published_at: a.published_at,
+        cited_claims: [a.title],
+      }))
+
+      const content_hash = hashContent(topicId, today, claims)
+
       await supabase.from('topic_content').upsert({
         topic_id: topicId,
         fetch_date: today,
-        title: merged.title,
-        claims: merged.claims,
-        sources: merged.sources,
+        title: rss.articles[0].title,
+        claims,
+        sources,
         content_hash,
       }, { onConflict: 'topic_id,fetch_date' })
 
-      return {
-        topicId,
-        status: 'ingested',
-        articlesFromRss: rss?.articles.length || 0,
-        claimsFromWeb: web?.claims.length || 0,
-      }
+      return { topicId, status: 'ingested', articleCount: rss.articles.length }
     })
   )
 
@@ -120,10 +83,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const authHeader = req.headers.authorization
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
-  }
-
-  if (!anthropicApiKey) {
-    return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured. Content ingestion requires an API key.' })
   }
 
   const today = new Date().toISOString().split('T')[0]
