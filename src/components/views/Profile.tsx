@@ -360,11 +360,11 @@ export default function Profile({
           <ChevronRight size={16} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
         </button>
         <button
-          onClick={() => onNavigate('voices')}
+          onClick={() => onNavigate('throttles')}
           className="w-full flex items-center justify-between p-4 rounded-card transition-all-200"
           style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
         >
-          <span className="text-sm font-semibold text-white">Voice Library</span>
+          <span className="text-sm font-semibold text-white">Voice & Throttles</span>
           <ChevronRight size={16} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
         </button>
       </div>

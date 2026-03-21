@@ -6,7 +6,6 @@ const VIEW_LABELS: Record<ViewName, string> = {
   home: 'DASHBOARD',
   topics: 'TOPICS',
   throttles: 'THROTTLES',
-  voices: 'VOICES',
   episode: 'EPISODE',
   profile: 'PROFILE',
 }

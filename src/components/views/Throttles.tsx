@@ -1,4 +1,4 @@
-import { Gauge, Clock, Calendar, Mic, Newspaper, Radio, Flame, Zap, Target, Waves, Sun, Users, TrendingUp } from 'lucide-react'
+import { Gauge, Clock, Calendar, Mic, Newspaper, Radio, Flame, Zap, Target, Waves, Sun } from 'lucide-react'
 import type { Tone, Length, Cadence } from '../../lib/types'
 import { ALL_VOICES } from '../../lib/constants'
 import ThrottleOption from '../ui/ThrottleOption'
