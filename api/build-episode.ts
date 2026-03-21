@@ -352,6 +352,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = params.user_id as string | undefined
   const topicsParam = params.topics as string | TopicParam[] | undefined
   const defaultVoice = (params.default_voice as string) || DEFAULT_VOICE
+  const dateOverride = params.date as string | undefined // YYYY-MM-DD for testing past dates
 
   if (!topicsParam) {
     return res.status(400).json({ error: 'Missing topics parameter' })
@@ -399,7 +400,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
 
   const supabase = getSupabase()
-  const today = new Date().toISOString().split('T')[0]
+  const today = dateOverride && /^\d{4}-\d{2}-\d{2}$/.test(dateOverride) ? dateOverride : new Date().toISOString().split('T')[0]
 
   let cacheHits = 0
   let cacheMisses = 0
@@ -608,7 +609,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Build cold open, transitions, and wrap-up via polish pass
-  const now = new Date()
+  const now = dateOverride ? new Date(dateOverride + 'T12:00:00Z') : new Date()
   const isWeekend = now.getDay() === 0 || now.getDay() === 6
   const suffix = isWeekend ? 'weekend digest' : 'morning brief'
 

@@ -11,6 +11,7 @@ const FEED_REGISTRY: Record<string, RssFeed[]> = {
     { url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664', name: 'CNBC Finance', tier: 2 },
   ],
   tech: [
+    { url: 'https://feeds.reuters.com/reuters/technologyNews', name: 'Reuters Tech', tier: 1 },
     { url: 'https://feeds.arstechnica.com/arstechnica/technology-lab', name: 'Ars Technica', tier: 2 },
     { url: 'https://www.theverge.com/rss/index.xml', name: 'The Verge', tier: 2 },
     { url: 'https://techcrunch.com/feed/', name: 'TechCrunch', tier: 2 },
@@ -39,9 +40,11 @@ const FEED_REGISTRY: Record<string, RssFeed[]> = {
     { url: 'https://www.designboom.com/feed/', name: 'Designboom', tier: 3 },
   ],
   sports: [
-    { url: 'https://www.espn.com/espn/rss/news', name: 'ESPN', tier: 2 },
     { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml', name: 'NYT Sports', tier: 1 },
+    { url: 'https://feeds.bbci.co.uk/sport/rss.xml', name: 'BBC Sport', tier: 1 },
+    { url: 'https://www.espn.com/espn/rss/news', name: 'ESPN', tier: 2 },
     { url: 'https://www.cbssports.com/rss/headlines/', name: 'CBS Sports', tier: 2 },
+    { url: 'https://www.theguardian.com/football/rss', name: 'Guardian Football', tier: 1 },
   ],
   travel: [
     { url: 'https://www.lonelyplanet.com/news/feed/atom', name: 'Lonely Planet', tier: 2 },
