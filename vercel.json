@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/generate-segment.ts": {
-      "maxDuration": 120
+      "maxDuration": 60
     },
     "api/voice-sample.ts": {
       "maxDuration": 30
