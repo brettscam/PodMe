@@ -238,6 +238,107 @@ Return ONLY the script text, nothing else.`
   }
 }
 
+// --- Script Audit Agent: Post-Generation Polish Pass ---
+
+interface PolishResult {
+  cold_open: string
+  transitions: string[]
+  wrap_up: string
+}
+
+async function polishEpisode(
+  topicSegments: SegmentResult[],
+  tone: string,
+  isWeekend: boolean,
+): Promise<PolishResult | null> {
+  if (!anthropicApiKey) return null
+
+  const suffix = isWeekend ? 'weekend digest' : 'morning brief'
+
+  const segmentSummaries = topicSegments
+    .map((s, i) => `[Segment ${i + 1}: ${s.title}]\n${s.script}`)
+    .join('\n\n---\n\n')
+
+  const toneGuide: Record<string, string> = {
+    factual: 'Professional and authoritative. No jokes, no filler.',
+    mixed: 'Warm and conversational. Light personality, but informative.',
+    commentary: 'Engaging and opinionated. Strong voice, like a favorite columnist.',
+  }
+
+  const prompt = `You are the show producer for a daily podcast called "${suffix}".
+Below are the raw topic scripts in order. Write:
+
+1. A compelling cold open (2-3 sentences) that teases the top 2-3 stories to hook the listener. Do NOT list every segment — pick the most interesting angles.
+2. A transition line BEFORE each topic (1-2 sentences bridging from the previous topic or cold open). The first transition introduces the first topic after the cold open.
+3. A warm wrap-up (2-3 sentences) that references what was covered and looks ahead.
+
+Tone: ${tone} (${toneGuide[tone] || toneGuide.mixed})
+Day type: ${isWeekend ? 'Weekend' : 'Weekday'}
+Number of segments: ${topicSegments.length}
+
+Episode segments:
+${segmentSummaries}
+
+Return ONLY a JSON object with this structure (no markdown, no code fences):
+{
+  "cold_open": "the cold open script",
+  "transitions": ["transition before segment 1", "transition before segment 2", ...],
+  "wrap_up": "the wrap-up script"
+}
+
+The transitions array must have exactly ${topicSegments.length} entries (one per segment).
+Write for spoken delivery — natural, no written-style phrasing.`
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+
+    if (!response.ok) {
+      console.error(`Polish pass API error: ${response.status}`)
+      return null
+    }
+
+    const data = await response.json()
+    const rawText = (data.content || [])
+      .filter((b: { type: string }) => b.type === 'text')
+      .map((b: { text: string }) => b.text)
+      .join('')
+
+    let parsed: PolishResult
+    try {
+      parsed = JSON.parse(rawText)
+    } catch {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        console.error('No JSON found in polish pass response')
+        return null
+      }
+      parsed = JSON.parse(jsonMatch[0])
+    }
+
+    if (!parsed.cold_open || !Array.isArray(parsed.transitions) || !parsed.wrap_up) {
+      console.error('Invalid polish pass structure')
+      return null
+    }
+
+    return parsed
+  } catch (err) {
+    console.error('Polish pass failed:', err)
+    return null
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -476,10 +577,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
   }
 
-  // Build cold open and wrap up
+  // Build cold open, transitions, and wrap-up via polish pass
   const now = new Date()
   const isWeekend = now.getDay() === 0 || now.getDay() === 6
   const suffix = isWeekend ? 'weekend digest' : 'morning brief'
+
+  // Run the Script Audit Agent — generates cold open, transitions, wrap-up
+  const polished = await polishEpisode(topicSegments, tone, isWeekend)
+
+  const coldOpenScript = polished?.cold_open
+    || `Good morning, and welcome to your ${suffix}. We've got ${topicSegments.length} segments for you today. Let's get into it.`
+  const wrapUpScript = polished?.wrap_up
+    || `That's your ${suffix}. We'll see you ${isWeekend ? 'Monday morning' : 'tomorrow'} with a fresh episode. Have a wonderful ${isWeekend ? 'weekend' : 'day'}.`
+
+  const coldOpenWords = coldOpenScript.split(/\s+/).length
+  const coldOpenDuration = Math.round(coldOpenWords / 2.5)
+  const wrapUpWords = wrapUpScript.split(/\s+/).length
+  const wrapUpDuration = Math.round(wrapUpWords / 2.5)
+
+  // Inject transitions into topic scripts if polish pass succeeded
+  if (polished?.transitions) {
+    for (let i = 0; i < topicSegments.length; i++) {
+      const transition = polished.transitions[i]
+      if (transition) {
+        topicSegments[i].script = transition + '\n\n' + topicSegments[i].script
+        // Recalculate duration with transition
+        const newWords = topicSegments[i].script.split(/\s+/).length
+        topicSegments[i].duration_seconds = Math.round(newWords / 2.5)
+      }
+    }
+  }
+
+  // Recalculate elapsed time with updated durations
+  let recalcElapsed = coldOpenDuration
+  for (const seg of topicSegments) {
+    seg.start_time_seconds = recalcElapsed
+    recalcElapsed += seg.duration_seconds
+  }
 
   const coldOpen: SegmentResult = {
     topic_id: null,
@@ -487,8 +621,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     title: 'Cold Open',
     voice: 'scottish-mentor',
     start_time_seconds: 0,
-    duration_seconds: 50,
-    script: `Good morning, and welcome to your ${suffix}. We've got ${topicSegments.length} segments for you today. Let's get into it.`,
+    duration_seconds: coldOpenDuration,
+    script: coldOpenScript,
     sources: [],
     sort_order: 0,
   }
@@ -498,15 +632,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     segment_type: 'wrap_up',
     title: 'Wrap & Look-Ahead',
     voice: 'scottish-mentor',
-    start_time_seconds: elapsed,
-    duration_seconds: 60,
-    script: `That's your ${suffix}. We'll see you ${isWeekend ? 'Monday morning' : 'tomorrow'} with a fresh episode. Have a wonderful ${isWeekend ? 'weekend' : 'day'}.`,
+    start_time_seconds: recalcElapsed,
+    duration_seconds: wrapUpDuration,
+    script: wrapUpScript,
     sources: [],
     sort_order: topicSegments.length + 1,
   }
 
   const allSegments = [coldOpen, ...topicSegments, wrapUp]
-  const totalMinutes = Math.round((elapsed + 60) / 60)
+  const totalMinutes = Math.round((recalcElapsed + wrapUpDuration) / 60)
 
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const episodeTitle = `${dateStr} — ${isWeekend ? 'Weekend Digest' : 'Morning Brief'}`
