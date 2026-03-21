@@ -4,6 +4,7 @@ import type { Episode } from '../../lib/types'
 import { formatSeconds, getVoice } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
 import ShareModal from '../ui/ShareModal'
+import EpisodeLoadingCard from '../ui/EpisodeLoadingCard'
 
 function TierDot({ tier }: { tier: number }) {
   const color = tier === 1 ? 'var(--accent-blue)' : tier === 2 ? 'var(--success)' : 'var(--text-muted)'
@@ -63,13 +64,7 @@ export default function EpisodePreview({
     return (
       <div className="space-y-4">
         {episodeLoading ? (
-          <div className="rounded-card p-8 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid rgba(255,107,53,0.2)' }}>
-            <div className="flex justify-center mb-4">
-              <div className="spin-ring" />
-            </div>
-            <p className="text-base font-bold text-white mb-1" style={{ animation: 'pulse 2s ease-in-out infinite' }}>Building your episode</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Fetching RSS feeds and writing your podcast script</p>
-          </div>
+          <EpisodeLoadingCard />
         ) : episodeError ? (
           <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
             <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
