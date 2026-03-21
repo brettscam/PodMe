@@ -7,12 +7,13 @@ interface MiniPlayerProps {
   episode: Episode
   generatedAudioUrls?: string[]
   generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
+  generationError?: string
   onViewEpisode: () => void
   onGenerate?: () => void
   onRegenerate?: () => void
 }
 
-export default function MiniPlayer({ episode, generatedAudioUrls, generationStatus, onViewEpisode, onGenerate, onRegenerate }: MiniPlayerProps) {
+export default function MiniPlayer({ episode, generatedAudioUrls, generationStatus, generationError, onViewEpisode, onGenerate, onRegenerate }: MiniPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -392,7 +393,14 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
               <span className="text-sm font-semibold" style={{ color: 'var(--accent-pulse)' }}>Generating audio...</span>
             </div>
           ) : generationStatus === 'error' ? (
-            <p className="text-xs text-white/40 text-center">Audio generation unavailable — TTS not configured</p>
+            <div className="text-center space-y-1">
+              <p className="text-xs text-red-400">{generationError || 'Audio generation failed'}</p>
+              {onGenerate && (
+                <button onClick={onGenerate} className="text-xs font-medium" style={{ color: 'var(--accent-pulse)' }}>
+                  Retry
+                </button>
+              )}
+            </div>
           ) : generationStatus !== 'complete' && onGenerate ? (
             <button
               onClick={onGenerate}

@@ -91,6 +91,7 @@ export function useEpisodeBuilder(
 
       const body: Record<string, unknown> = { tone, length, topics: topicsPayload }
       if (forceRefresh) body.force_refresh = true
+      if (userId) body.user_id = userId
 
       const response = await fetch('/api/build-episode', {
         method: 'POST',
@@ -122,7 +123,7 @@ export function useEpisodeBuilder(
       setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicsKey, tone, length])
+  }, [topicsKey, tone, length, userId])
 
   // On mount: try DB first, fall back to build-episode API
   useEffect(() => {

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { TOPIC_META } from './lib/topic-meta.js'
 import { fetchRssForTopic } from './lib/rss-fetcher.js'
 import { mergeRssAndWebSearch } from './lib/content-merger.js'
@@ -248,6 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const tone = (params.tone as string) || 'mixed'
   const length = (params.length as string) || 'standard'
   const forceRefresh = params.force_refresh === true || params.force_refresh === 'true'
+  const userId = params.user_id as string | undefined
   const topicsParam = params.topics as string | TopicParam[] | undefined
 
   if (!topicsParam) {
@@ -510,30 +511,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const episodeTitle = `${dateStr} — ${isWeekend ? 'Weekend Digest' : 'Morning Brief'}`
 
-  return res.status(200).json({
-    episode: {
-      title: episodeTitle,
-      date: today,
-      cadence: isWeekend ? 'weekly' : 'daily',
-      tone,
-      estimated_minutes: totalMinutes,
-      status: 'ready',
-      show_notes: {
-        segments: topicSegments.map(s => ({
-          title: s.title,
-          sources: s.sources,
-        })),
-        correction_notes: [],
-        source_summary: {
-          total_articles: topicSegments.length * 2,
-          total_outlets: topicSegments.length + 2,
-          tier_1_count: Math.ceil(topicSegments.length * 0.5),
-          tier_2_count: Math.ceil(topicSegments.length * 0.4),
-          tier_3_count: Math.max(1, Math.floor(topicSegments.length * 0.1)),
-        },
+  const episodeData = {
+    title: episodeTitle,
+    date: today,
+    cadence: isWeekend ? 'weekly' : 'daily',
+    tone,
+    estimated_minutes: totalMinutes,
+    status: 'ready' as const,
+    show_notes: {
+      segments: topicSegments.map(s => ({
+        title: s.title,
+        sources: s.sources,
+      })),
+      correction_notes: [],
+      source_summary: {
+        total_articles: topicSegments.length * 2,
+        total_outlets: topicSegments.length + 2,
+        tier_1_count: Math.ceil(topicSegments.length * 0.5),
+        tier_2_count: Math.ceil(topicSegments.length * 0.4),
+        tier_3_count: Math.max(1, Math.floor(topicSegments.length * 0.1)),
       },
-      segments: allSegments,
     },
+    segments: allSegments,
+  }
+
+  // Save to Supabase so subsequent page loads are instant
+  if (userId) {
+    try {
+      const episodeId = randomUUID()
+      await supabase.from('episodes').insert({
+        id: episodeId,
+        user_id: userId,
+        title: episodeData.title,
+        date: episodeData.date,
+        cadence: episodeData.cadence,
+        tone: episodeData.tone,
+        estimated_minutes: episodeData.estimated_minutes,
+        show_notes: episodeData.show_notes,
+        status: 'ready',
+      })
+
+      await supabase.from('episode_segments').insert(
+        allSegments.map((s, i) => ({
+          id: randomUUID(),
+          episode_id: episodeId,
+          topic_id: s.topic_id,
+          segment_type: s.segment_type,
+          title: s.title,
+          voice: s.voice,
+          start_time_seconds: s.start_time_seconds,
+          duration_seconds: s.duration_seconds,
+          script: s.script,
+          sources: s.sources,
+          sort_order: i,
+        }))
+      )
+    } catch (saveErr) {
+      console.error('Failed to cache episode to Supabase:', saveErr)
+    }
+  }
+
+  return res.status(200).json({
+    episode: episodeData,
     cache_stats: {
       hits: cacheHits,
       misses: cacheMisses,

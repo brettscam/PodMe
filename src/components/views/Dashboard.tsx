@@ -12,6 +12,7 @@ interface DashboardProps {
   episode: Episode | null
   generatedAudioUrls?: string[]
   generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
+  generationError?: string
   episodeLoading?: boolean
   episodeError?: string | null
   onNavigate: (view: ViewName) => void
@@ -22,7 +23,7 @@ interface DashboardProps {
   onRegenerate?: () => void
 }
 
-export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, episodeLoading, episodeError, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, generationError, episodeLoading, episodeError, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const knowledgeBlock = useMemo<KnowledgeBlock>(() => getPersonalizedKnowledgeBlock(topics.map(t => t.topic_id)), [topics])
 
@@ -59,7 +60,7 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
           </button>
         </div>
       ) : episode ? (
-        <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} generationStatus={generationStatus} onViewEpisode={() => onNavigate('episode')} onGenerate={onGenerate} onRegenerate={onRegenerate} />
+        <MiniPlayer episode={episode} generatedAudioUrls={generatedAudioUrls} generationStatus={generationStatus} generationError={generationError} onViewEpisode={() => onNavigate('episode')} onGenerate={onGenerate} onRegenerate={onRegenerate} />
       ) : (
         <div className="rounded-card p-6 text-center" style={{ background: 'linear-gradient(135deg, #0F1320 0%, #1E2433 100%)', border: '1px solid var(--border-subtle)' }}>
           <button

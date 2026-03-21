@@ -90,6 +90,7 @@ export default function App() {
             episode={currentEpisode}
             generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
             generationStatus={genProgress.status}
+            generationError={genProgress.error}
             onNavigate={setCurrentView}
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}
