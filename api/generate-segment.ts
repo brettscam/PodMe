@@ -63,8 +63,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!ttsRes.ok) {
       const errorBody = await ttsRes.json().catch(() => ({}))
+      const detail = errorBody?.detail || errorBody
+      const message = typeof detail === 'string' ? detail
+        : detail?.message || detail?.status || JSON.stringify(detail)
       return res.status(ttsRes.status).json({
-        error: 'ElevenLabs API error',
+        error: `ElevenLabs error (${ttsRes.status}): ${message}`,
         detail: errorBody,
       })
     }
