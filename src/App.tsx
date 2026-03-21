@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { ViewName, LifeContext } from './lib/types'
 import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
@@ -35,7 +35,17 @@ export default function App() {
   const { topics, addTopic, removeTopic, setWeight, togglePin, addCustomTag, removeCustomTag } = useTopics(userId)
   const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
-  const { progress: genProgress, generateEpisode, reset: resetGeneration } = useGenerate()
+  const { progress: genProgress, generateEpisode, loadCachedAudio, reset: resetGeneration } = useGenerate()
+  const cacheLoadAttemptedRef = useRef(false)
+
+  // Auto-load cached audio when an episode loads from DB
+  useEffect(() => {
+    if (cacheLoadAttemptedRef.current) return
+    if (!currentEpisode || !currentEpisode.segments || currentEpisode.segments.length === 0) return
+    if (genProgress.status !== 'idle') return
+    cacheLoadAttemptedRef.current = true
+    loadCachedAudio(currentEpisode.segments)
+  }, [currentEpisode, genProgress.status, loadCachedAudio])
 
   const handleRegenerate = useCallback(() => {
     resetGeneration()

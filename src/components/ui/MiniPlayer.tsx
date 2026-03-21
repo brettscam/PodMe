@@ -6,7 +6,7 @@ import { getVoice, formatSeconds } from '../../lib/constants'
 interface MiniPlayerProps {
   episode: Episode
   generatedAudioUrls?: string[]
-  generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
+  generationStatus?: 'idle' | 'loading_cache' | 'generating' | 'complete' | 'error'
   generationError?: string
   onViewEpisode: () => void
   onGenerate?: () => void
@@ -383,7 +383,12 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
           >
             View Episode Content
           </button>
-          {generationStatus === 'generating' ? (
+          {generationStatus === 'loading_cache' ? (
+            <div className="flex items-center justify-center gap-3 py-2">
+              <div className="spin-ring" style={{ width: 18, height: 18 }} />
+              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Loading audio...</span>
+            </div>
+          ) : generationStatus === 'generating' ? (
             <div className="flex items-center justify-center gap-3 py-2">
               <div className="flex items-end gap-0.5 h-4">
                 {[...Array(5)].map((_, i) => (

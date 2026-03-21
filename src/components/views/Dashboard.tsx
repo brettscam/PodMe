@@ -11,7 +11,7 @@ interface DashboardProps {
   topics: UserTopic[]
   episode: Episode | null
   generatedAudioUrls?: string[]
-  generationStatus?: 'idle' | 'generating' | 'complete' | 'error'
+  generationStatus?: 'idle' | 'loading_cache' | 'generating' | 'complete' | 'error'
   generationError?: string
   episodeLoading?: boolean
   episodeError?: string | null

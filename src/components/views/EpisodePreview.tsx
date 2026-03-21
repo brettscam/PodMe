@@ -11,7 +11,7 @@ function TierDot({ tier }: { tier: number }) {
 }
 
 interface GenerationProgress {
-  status: 'idle' | 'generating' | 'complete' | 'error'
+  status: 'idle' | 'loading_cache' | 'generating' | 'complete' | 'error'
   currentSegment: number
   totalSegments: number
   segmentName: string
@@ -305,6 +305,19 @@ export default function EpisodePreview({
           </button>
         )}
       </div>
+
+      {/* Loading cached audio */}
+      {generationProgress && generationProgress.status === 'loading_cache' && (
+        <div
+          className="rounded-card p-5"
+          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="spin-ring" style={{ width: 20, height: 20 }} />
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Loading audio...</span>
+          </div>
+        </div>
+      )}
 
       {/* Generate Episode Button */}
       {onGenerate && (!generationProgress || generationProgress.status === 'idle') && (

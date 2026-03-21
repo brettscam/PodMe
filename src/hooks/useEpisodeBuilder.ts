@@ -142,7 +142,7 @@ export function useEpisodeBuilder(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicsKey, userId])
 
-  // Load past episodes from DB
+  // Load past episodes from DB (with their segments)
   useEffect(() => {
     if (!userId) return
     supabase
@@ -152,8 +152,20 @@ export function useEpisodeBuilder(
       .eq('status', 'ready')
       .order('date', { ascending: false })
       .limit(10)
-      .then(({ data }) => {
-        if (data) setDbPastEpisodes(data)
+      .then(async ({ data }) => {
+        if (!data || data.length === 0) return
+        // Load segments for each past episode
+        const episodesWithSegments = await Promise.all(
+          data.map(async (ep) => {
+            const { data: segments } = await supabase
+              .from('episode_segments')
+              .select('*')
+              .eq('episode_id', ep.id)
+              .order('sort_order', { ascending: true })
+            return { ...ep, segments: segments || [] }
+          })
+        )
+        setDbPastEpisodes(episodesWithSegments)
       })
   }, [userId])
 
