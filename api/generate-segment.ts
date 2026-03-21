@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const createRes = await fetch('https://api.replicate.com/v1/predictions', {
+    const createRes = await fetch(`https://api.replicate.com/v1/models/${CHATTERBOX_MODEL}/predictions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiToken}`,
@@ -27,7 +27,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Prefer': 'wait',
       },
       body: JSON.stringify({
-        model: CHATTERBOX_MODEL,
         input: {
           text: script,
           exaggeration: 0.3,
