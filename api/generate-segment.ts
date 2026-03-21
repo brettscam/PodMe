@@ -1,6 +1,41 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { createClient } from '@supabase/supabase-js'
+import { createHash } from 'crypto'
 
 const CHATTERBOX_MODEL = 'resemble-ai/chatterbox-turbo'
+const AUDIO_BUCKET = 'audio-cache'
+
+function getSupabase() {
+  const url = process.env.VITE_SUPABASE_URL || ''
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+  return createClient(url, key)
+}
+
+function cacheKey(script: string): string {
+  return createHash('sha256').update(script).digest('hex')
+}
+
+async function getCachedAudio(supabase: ReturnType<typeof getSupabase>, key: string): Promise<Buffer | null> {
+  try {
+    const { data, error } = await supabase.storage.from(AUDIO_BUCKET).download(`${key}.wav`)
+    if (error || !data) return null
+    const arrayBuffer = await data.arrayBuffer()
+    return Buffer.from(arrayBuffer)
+  } catch {
+    return null
+  }
+}
+
+async function uploadAudio(supabase: ReturnType<typeof getSupabase>, key: string, buffer: Buffer): Promise<void> {
+  try {
+    await supabase.storage.from(AUDIO_BUCKET).upload(`${key}.wav`, buffer, {
+      contentType: 'audio/wav',
+      upsert: true,
+    })
+  } catch (err) {
+    console.warn('audio-cache upload failed:', err)
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -17,6 +52,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!script || !voice) {
     return res.status(400).json({ error: 'Missing script or voice' })
   }
+
+  const supabase = getSupabase()
+  const key = cacheKey(script)
+
+  // Check cache
+  const cached = await getCachedAudio(supabase, key)
+  if (cached) {
+    console.log('audio-cache', { cacheKey: key, hit: true })
+    return res.status(200).json({
+      segmentId,
+      audio: cached.toString('base64'),
+      contentType: 'audio/wav',
+      cached: true,
+    })
+  }
+
+  console.log('audio-cache', { cacheKey: key, hit: false })
 
   try {
     const createRes = await fetch(`https://api.replicate.com/v1/models/${CHATTERBOX_MODEL}/predictions`, {
@@ -72,14 +124,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to download generated audio' })
     }
 
-    const audioBuffer = await audioRes.arrayBuffer()
-    const base64Audio = Buffer.from(audioBuffer).toString('base64')
+    const audioBuffer = Buffer.from(await audioRes.arrayBuffer())
+    const base64Audio = audioBuffer.toString('base64')
     const contentType = audioUrl.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav'
+
+    // Upload to cache (best-effort, don't block response)
+    uploadAudio(supabase, key, audioBuffer)
 
     return res.status(200).json({
       segmentId,
       audio: base64Audio,
       contentType,
+      cached: false,
     })
   } catch (error) {
     console.error('Generation error:', error)
