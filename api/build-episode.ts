@@ -453,6 +453,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const rss = rssResult.status === 'fulfilled' ? rssResult.value : null
       const web = webResult.status === 'fulfilled' ? webResult.value : null
 
+      if (!rss && !web) {
+        console.warn(`Both RSS and web search failed for ${ut.topic_id}, retrying web search...`)
+        // Retry web search once if both failed
+        try {
+          const retryWeb = await fetchTopicContent(ut.topic_id, meta.label, meta.subs, ut.custom_tags || [])
+          if (retryWeb) {
+            const merged = mergeRssAndWebSearch(null, retryWeb)
+            if (merged) {
+              contentFetches++
+              const content_hash = hashContent(ut.topic_id, today, merged.claims)
+              const customTagsHash = (ut.custom_tags || []).sort().join(',')
+              await supabase.from('topic_content').upsert({
+                topic_id: ut.topic_id, fetch_date: today, title: merged.title,
+                claims: merged.claims, sources: merged.sources, content_hash, custom_tags_hash: customTagsHash,
+              }, { onConflict: 'topic_id,fetch_date' })
+              contentMap.set(ut.topic_id, { title: merged.title, claims: merged.claims, sources: merged.sources, content_hash })
+            }
+          }
+        } catch (retryErr) {
+          console.error(`Web search retry also failed for ${ut.topic_id}:`, retryErr)
+        }
+        return
+      }
+
       const merged = mergeRssAndWebSearch(rss, web)
       if (!merged) return
 
@@ -480,6 +504,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Wait for all content fetches to complete
   await Promise.allSettled(contentChecks)
+
+  // Log content fetch results
+  const fetchedTopics = sorted.map(ut => ut.topic_id).filter(id => contentMap.has(id))
+  const missingTopics = sorted.map(ut => ut.topic_id).filter(id => !contentMap.has(id))
+  console.log(`Content fetch results: ${fetchedTopics.length} succeeded [${fetchedTopics.join(',')}], ${missingTopics.length} failed [${missingTopics.join(',')}]`)
 
   for (const ut of sorted) {
     const defaults = TOPIC_DEFAULTS[ut.topic_id]

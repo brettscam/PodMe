@@ -315,8 +315,9 @@ export const DEFAULT_USER_TOPICS = [
   { id: '2', user_id: 'local-user', topic_id: 'tech', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 1, custom_tags: ['Claude updates', 'Apple'] },
   { id: '3', user_id: 'local-user', topic_id: 'world', weight: 'standard' as const, pinned: false, voice_override: null, sort_order: 2, custom_tags: [] },
   { id: '4', user_id: 'local-user', topic_id: 'local', weight: 'standard' as const, pinned: true, voice_override: 'neighbor', sort_order: 3, custom_tags: ['Marin housing', 'BART'] },
-  { id: '5', user_id: 'local-user', topic_id: 'creative', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 4, custom_tags: [] },
-  { id: '6', user_id: 'local-user', topic_id: 'entertainment', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 5, custom_tags: ['The Bear'] },
+  { id: '5', user_id: 'local-user', topic_id: 'sports', weight: 'standard' as const, pinned: true, voice_override: null, sort_order: 4, custom_tags: ['Liverpool', 'Premier League', 'Champions League', 'F1'] },
+  { id: '6', user_id: 'local-user', topic_id: 'creative', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 5, custom_tags: [] },
+  { id: '7', user_id: 'local-user', topic_id: 'entertainment', weight: 'brief' as const, pinned: false, voice_override: null, sort_order: 6, custom_tags: ['The Bear'] },
 ]
 
 const day2 = daysAgo(2)

@@ -7,9 +7,9 @@ export interface FetchedRssContent {
   feedsSucceeded: number
 }
 
-const FETCH_TIMEOUT_MS = 8000
+const FETCH_TIMEOUT_MS = 15000
 const MAX_ARTICLES_PER_FEED = 5
-const MAX_AGE_HOURS = 24
+const MAX_AGE_HOURS = 72
 
 function isRecent(publishedAt: string, maxAgeHours: number): boolean {
   if (!publishedAt) return true
