@@ -19,7 +19,7 @@ export function useEpisodeBuilder(
   topics: UserTopic[] | undefined,
   tone: Tone,
   length: Length,
-  _defaultVoice: string,
+  defaultVoice: string,
   userId?: string,
 ): UseEpisodeBuilderResult {
   const [serverEpisode, setServerEpisode] = useState<Episode | null>(null)
@@ -89,7 +89,7 @@ export function useEpisodeBuilder(
         custom_tags: t.custom_tags || [],
       }))
 
-      const body: Record<string, unknown> = { tone, length, topics: topicsPayload }
+      const body: Record<string, unknown> = { tone, length, default_voice: defaultVoice, topics: topicsPayload }
       if (forceRefresh) body.force_refresh = true
       if (userId) body.user_id = userId
 

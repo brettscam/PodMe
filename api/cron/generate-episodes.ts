@@ -83,6 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body: JSON.stringify({
           tone: user.tone || 'mixed',
           length: user.length || 'standard',
+          default_voice: user.default_voice || 'anchor',
           topics,
         }),
       })

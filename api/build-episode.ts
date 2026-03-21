@@ -28,20 +28,20 @@ const WEIGHT_MULTIPLIERS: Record<string, number> = {
 }
 
 // Single voice for all segments — keeps the podcast cohesive
-const DEFAULT_VOICE = 'scottish-mentor'
+const DEFAULT_VOICE = 'anchor'
 
-// Topic defaults — voice and title only, NO hardcoded scripts (those go stale)
-const TOPIC_DEFAULTS: Record<string, { title: string; voice: string }> = {
-  earnings: { title: 'Markets & Earnings', voice: DEFAULT_VOICE },
-  tech: { title: 'Technology', voice: DEFAULT_VOICE },
-  world: { title: 'World News', voice: DEFAULT_VOICE },
-  local: { title: 'Bay Area & Marin', voice: DEFAULT_VOICE },
-  business: { title: 'Business & Economy', voice: DEFAULT_VOICE },
-  science: { title: 'Science & Health', voice: DEFAULT_VOICE },
-  creative: { title: 'Creative & Culture', voice: DEFAULT_VOICE },
-  sports: { title: 'Sports', voice: DEFAULT_VOICE },
-  travel: { title: 'Travel', voice: DEFAULT_VOICE },
-  entertainment: { title: 'Entertainment', voice: DEFAULT_VOICE },
+// Topic defaults — title only, NO hardcoded scripts (those go stale)
+const TOPIC_DEFAULTS: Record<string, { title: string }> = {
+  earnings: { title: 'Markets & Earnings' },
+  tech: { title: 'Technology' },
+  world: { title: 'World News' },
+  local: { title: 'Bay Area & Marin' },
+  business: { title: 'Business & Economy' },
+  science: { title: 'Science & Health' },
+  creative: { title: 'Creative & Culture' },
+  sports: { title: 'Sports' },
+  travel: { title: 'Travel' },
+  entertainment: { title: 'Entertainment' },
 }
 
 // --- Content Ingestion ---
@@ -351,6 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const forceRefresh = params.force_refresh === true || params.force_refresh === 'true'
   const userId = params.user_id as string | undefined
   const topicsParam = params.topics as string | TopicParam[] | undefined
+  const defaultVoice = (params.default_voice as string) || DEFAULT_VOICE
 
   if (!topicsParam) {
     return res.status(400).json({ error: 'Missing topics parameter' })
@@ -486,7 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const baseDuration = DURATION_TARGETS[length] || 180
     const targetDuration = Math.round(baseDuration * (WEIGHT_MULTIPLIERS[ut.weight] || 1))
-    const voice = ut.voice_override || defaults.voice
+    const voice = defaultVoice
 
     // Step 1: Check content (already fetched in parallel above)
     const content = contentMap.get(ut.topic_id)
@@ -619,7 +620,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     topic_id: null,
     segment_type: 'cold_open',
     title: 'Cold Open',
-    voice: 'scottish-mentor',
+    voice: defaultVoice,
     start_time_seconds: 0,
     duration_seconds: coldOpenDuration,
     script: coldOpenScript,
@@ -631,7 +632,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     topic_id: null,
     segment_type: 'wrap_up',
     title: 'Wrap & Look-Ahead',
-    voice: 'scottish-mentor',
+    voice: defaultVoice,
     start_time_seconds: recalcElapsed,
     duration_seconds: wrapUpDuration,
     script: wrapUpScript,
