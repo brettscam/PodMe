@@ -146,6 +146,12 @@ html, body, #root {
   animation: spinPulse 1s linear infinite;
 }
 
+/* Text Pulse — loading state text */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
 /* Playback Glow — pulsing border/shadow during playback */
 @keyframes playbackGlow {
   0%   { box-shadow: 0 0 8px rgba(255,107,53,0.3), 0 0 20px rgba(255,107,53,0.1); }
