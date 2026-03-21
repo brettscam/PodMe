@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { ChevronDown, Plus, Pin, PinOff, Star, Minus, Mic, Sparkles, X, Tag } from 'lucide-react'
+import { ChevronDown, Plus, Pin, PinOff, Star, Minus, Sparkles, X, Tag } from 'lucide-react'
 import type { UserTopic, Weight } from '../../lib/types'
-import { ALL_VOICES, getVoice, getTopic } from '../../lib/constants'
+import { getTopic } from '../../lib/constants'
 import ToggleSwitch from '../ui/ToggleSwitch'
 import WeightBadge from '../ui/WeightBadge'
 import TopicPickerModal from './TopicPickerModal'
@@ -9,20 +9,18 @@ import TopicPickerModal from './TopicPickerModal'
 interface TopicsProps {
   topics: UserTopic[]
   discoveryEnabled: boolean
-  defaultVoice: string
   onAddTopic: (topicId: string) => void
   onRemoveTopic: (topicId: string) => void
   onSetWeight: (topicId: string, weight: Weight) => void
   onTogglePin: (topicId: string) => void
-  onSetVoiceOverride: (topicId: string, voiceId: string | null) => void
   onToggleDiscovery: (enabled: boolean) => void
   onAddCustomTag: (topicId: string, tag: string) => void
   onRemoveCustomTag: (topicId: string, tag: string) => void
 }
 
 export default function Topics({
-  topics, discoveryEnabled, defaultVoice, onAddTopic, onRemoveTopic,
-  onSetWeight, onTogglePin, onSetVoiceOverride, onToggleDiscovery,
+  topics, discoveryEnabled, onAddTopic, onRemoveTopic,
+  onSetWeight, onTogglePin, onToggleDiscovery,
   onAddCustomTag, onRemoveCustomTag,
 }: TopicsProps) {
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null)
@@ -84,7 +82,6 @@ export default function Topics({
         if (!topicDef) return null
         const isExpanded = expandedTopic === ut.topic_id
         const TopicIcon = topicDef.icon
-        const activeVoice = getVoice(ut.voice_override || defaultVoice)
 
         return (
           <div
@@ -106,12 +103,6 @@ export default function Topics({
                   <span className="text-sm font-bold text-white">{topicDef.label}</span>
                   <WeightBadge weight={ut.weight} />
                   {ut.pinned && <Pin size={12} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />}
-                  <span className="flex items-center gap-1">
-                    <Mic size={10} strokeWidth={1.5} style={{ color: activeVoice.color }} />
-                    <span className="text-[10px] font-medium" style={{ color: activeVoice.color }}>
-                      {activeVoice.name.replace('The ', '')}
-                    </span>
-                  </span>
                 </div>
                 {ut.custom_tags.length > 0 && (
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
@@ -172,43 +163,6 @@ export default function Topics({
                     </div>
                   </div>
                   <ToggleSwitch checked={ut.pinned} onChange={() => onTogglePin(ut.topic_id)} />
-                </div>
-
-                {/* Voice selection */}
-                <div>
-                  <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>SEGMENT VOICE</span>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <button
-                      onClick={() => onSetVoiceOverride(ut.topic_id, null)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all-200"
-                      style={{
-                        backgroundColor: !ut.voice_override ? 'rgba(74,144,217,0.15)' : 'var(--bg-card)',
-                        border: `1px solid ${!ut.voice_override ? 'rgba(74,144,217,0.4)' : 'var(--border-subtle)'}`,
-                        color: !ut.voice_override ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                      }}
-                    >
-                      Default
-                    </button>
-                    {ALL_VOICES.map(voice => {
-                      const VIcon = voice.icon
-                      const isSelected = ut.voice_override === voice.id
-                      return (
-                        <button
-                          key={voice.id}
-                          onClick={() => onSetVoiceOverride(ut.topic_id, voice.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all-200"
-                          style={{
-                            backgroundColor: isSelected ? `${voice.color}26` : 'var(--bg-card)',
-                            border: `1px solid ${isSelected ? `${voice.color}66` : 'var(--border-subtle)'}`,
-                            color: isSelected ? voice.color : 'var(--text-secondary)',
-                          }}
-                        >
-                          <VIcon size={12} strokeWidth={1.5} />
-                          {voice.name.replace('The ', '')}
-                        </button>
-                      )
-                    })}
-                  </div>
                 </div>
 
                 {/* Sub-topics */}
