@@ -3,20 +3,19 @@ import { getVoice, getTopic, estimateMinutes, formatSeconds, TOPIC_CATALOG, ALL_
 
 describe('getVoice', () => {
   it('returns the correct voice by id', () => {
-    const voice = getVoice('southern-gentleman')
-    expect(voice.name).toBe('The Southern Gentleman')
-    expect(voice.color).toBe('#FF6B35')
+    const voice = getVoice('anchor')
+    expect(voice.name).toBe('The Anchor')
+    expect(voice.color).toBe('#4A90D9')
   })
 
   it('falls back to first base voice for unknown id', () => {
     const voice = getVoice('nonexistent-voice')
-    expect(voice.id).toBe('southern-gentleman')
+    expect(voice.id).toBe('anchor')
   })
 
-  it('returns personality pack voices', () => {
-    const voice = getVoice('sportscaster')
-    expect(voice.name).toBe('The Sportscaster')
-    expect(voice.tier).toBe('pro')
+  it('falls back for removed voice ids', () => {
+    const voice = getVoice('scottish-mentor')
+    expect(voice.id).toBe('anchor')
   })
 })
 
@@ -94,8 +93,8 @@ describe('TOPIC_CATALOG', () => {
 })
 
 describe('ALL_VOICES', () => {
-  it('includes base and personality voices', () => {
-    expect(ALL_VOICES.length).toBeGreaterThanOrEqual(8)
+  it('has exactly 4 voices', () => {
+    expect(ALL_VOICES.length).toBe(4)
   })
 
   it('each voice has required fields', () => {
@@ -103,7 +102,12 @@ describe('ALL_VOICES', () => {
       expect(voice.id).toBeTruthy()
       expect(voice.name).toBeTruthy()
       expect(voice.color).toMatch(/^#[0-9A-Fa-f]{6}$/)
-      expect(['free', 'pro']).toContain(voice.tier)
+    }
+  })
+
+  it('voice definitions do not have a tier property', () => {
+    for (const voice of ALL_VOICES) {
+      expect(voice).not.toHaveProperty('tier')
     }
   })
 

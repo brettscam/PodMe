@@ -1,7 +1,6 @@
 import {
   BarChart3, Cpu, Globe, MapPin, Briefcase, FlaskConical, Camera, Trophy,
-  Plane, Clapperboard, Radio, Zap, TrendingUp, Users, Mic, Target, BookOpen,
-  Eye, GraduationCap,
+  Plane, Clapperboard, Radio, Zap, TrendingUp, Users,
 } from 'lucide-react'
 import type { TopicDefinition, VoiceDefinition, Episode, EpisodeSegment, SegmentSource, KnowledgeBlock, UserTopic } from './types'
 
@@ -19,25 +18,13 @@ export const TOPIC_CATALOG: TopicDefinition[] = [
 ]
 
 export const BASE_VOICES: VoiceDefinition[] = [
-  { id: 'southern-gentleman', name: 'The Southern Gentleman', desc: 'Warm, charming, authoritative drawl', color: '#FF6B35', icon: Radio, tier: 'free' },
-  { id: 'scottish-mentor', name: 'The Scottish Mentor', desc: 'Wise, steady, measured guidance', color: '#2563EB', icon: GraduationCap, tier: 'free' },
-  { id: 'modern-brand-ambassador', name: 'The Brand Voice', desc: 'Polished, confident, contemporary', color: '#10B981', icon: Zap, tier: 'free' },
-  { id: 'anchor', name: 'The Anchor', desc: 'Warm, authoritative, NPR-adjacent', color: '#4A90D9', icon: Radio, tier: 'free' },
-  { id: 'correspondent', name: 'The Correspondent', desc: 'Crisp, energetic, faster pace', color: '#F4A261', icon: Zap, tier: 'pro' },
-  { id: 'analyst', name: 'The Analyst', desc: 'Calm, measured, Bloomberg tone', color: '#2D8A6E', icon: TrendingUp, tier: 'pro' },
-  { id: 'neighbor', name: 'The Neighbor', desc: 'Casual, community, conversational', color: '#D4634A', icon: Users, tier: 'pro' },
-  { id: 'host', name: 'The Host', desc: 'Big personality, opinionated delivery', color: '#9B59B6', icon: Mic, tier: 'pro' },
+  { id: 'anchor', name: 'The Anchor', desc: 'Warm, authoritative, NPR-adjacent', color: '#4A90D9', icon: Radio },
+  { id: 'correspondent', name: 'The Correspondent', desc: 'Crisp, energetic, faster pace', color: '#F4A261', icon: Zap },
+  { id: 'neighbor', name: 'The Neighbor', desc: 'Casual, community, conversational', color: '#D4634A', icon: Users },
+  { id: 'analyst', name: 'The Analyst', desc: 'Calm, measured, Bloomberg tone', color: '#2D8A6E', icon: TrendingUp },
 ]
 
-export const PERSONALITY_PACKS: VoiceDefinition[] = [
-  { id: 'sportscaster', name: 'The Sportscaster', desc: 'High-energy highlight reel delivery', color: '#E74C3C', icon: Trophy, tier: 'pro' },
-  { id: 'strategist', name: 'The Strategist', desc: 'Hedge fund briefing, dry wit', color: '#1B3A5C', icon: Target, tier: 'pro' },
-  { id: 'storyteller', name: 'The Storyteller', desc: 'Narrative-driven, warm pacing', color: '#8E6B47', icon: BookOpen, tier: 'pro' },
-  { id: 'insider', name: 'The Insider', desc: 'Gossipy, knowing, rumor-mill tone', color: '#E67E22', icon: Eye, tier: 'pro' },
-  { id: 'professor', name: 'The Professor', desc: 'Thoughtful, connects dots across fields', color: '#2C3E50', icon: GraduationCap, tier: 'pro' },
-]
-
-export const ALL_VOICES: VoiceDefinition[] = [...BASE_VOICES, ...PERSONALITY_PACKS]
+export const ALL_VOICES: VoiceDefinition[] = [...BASE_VOICES]
 
 export function getVoice(id: string): VoiceDefinition {
   return ALL_VOICES.find(v => v.id === id) || BASE_VOICES[0]

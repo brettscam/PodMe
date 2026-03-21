@@ -4,11 +4,10 @@ export type Tone = 'factual' | 'mixed' | 'commentary'
 export type Length = 'quick' | 'standard' | 'deep'
 export type Cadence = 'daily' | 'weekly'
 export type Weight = 'featured' | 'standard' | 'brief'
-export type VoiceTier = 'free' | 'pro'
 export type SourceTier = 1 | 2 | 3 | 4
 export type SourcePreference = 'preferred' | 'muted'
 
-export type ViewName = 'home' | 'topics' | 'throttles' | 'voices' | 'episode' | 'profile'
+export type ViewName = 'home' | 'topics' | 'throttles' | 'episode' | 'profile'
 
 export interface LifeContext {
   id: string
@@ -32,7 +31,6 @@ export interface VoiceDefinition {
   desc: string
   color: string
   icon: LucideIcon
-  tier: VoiceTier
 }
 
 export interface UserProfile {
