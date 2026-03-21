@@ -1,17 +1,20 @@
-import { Gauge, Clock, Calendar, Newspaper, Radio, Flame, Zap, Target, Waves, Sun } from 'lucide-react'
+import { Gauge, Clock, Calendar, Mic, Newspaper, Radio, Flame, Zap, Target, Waves, Sun, Users, TrendingUp } from 'lucide-react'
 import type { Tone, Length, Cadence } from '../../lib/types'
+import { ALL_VOICES } from '../../lib/constants'
 import ThrottleOption from '../ui/ThrottleOption'
 
 interface ThrottlesProps {
   tone: Tone
   length: Length
   cadence: Cadence
+  defaultVoice: string
   onSetTone: (tone: Tone) => void
   onSetLength: (length: Length) => void
   onSetCadence: (cadence: Cadence) => void
+  onSetDefaultVoice: (voice: string) => void
 }
 
-export default function Throttles({ tone, length, cadence, onSetTone, onSetLength, onSetCadence }: ThrottlesProps) {
+export default function Throttles({ tone, length, cadence, defaultVoice, onSetTone, onSetLength, onSetCadence, onSetDefaultVoice }: ThrottlesProps) {
   return (
     <div className="space-y-4">
       {/* Tone */}
@@ -118,6 +121,33 @@ export default function Throttles({ tone, length, cadence, onSetTone, onSetLengt
             selected={cadence === 'weekly'}
             onClick={() => onSetCadence('weekly')}
           />
+        </div>
+      </div>
+
+      {/* Voice */}
+      <div
+        className="rounded-card p-5"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <Mic size={18} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
+          <h3 className="text-[17px] font-bold">Voice</h3>
+        </div>
+        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Choose your podcast voice</p>
+        <div className="space-y-1">
+          {ALL_VOICES.map(voice => (
+            <ThrottleOption
+              key={voice.id}
+              icon={voice.icon}
+              label={voice.name}
+              description={voice.desc}
+              selected={defaultVoice === voice.id}
+              onClick={() => onSetDefaultVoice(voice.id)}
+            />
+          ))}
         </div>
       </div>
     </div>
