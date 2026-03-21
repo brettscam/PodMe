@@ -31,7 +31,7 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
     { icon: Gauge, label: 'TONE', value: profile.tone.charAt(0).toUpperCase() + profile.tone.slice(1), view: 'throttles' as ViewName },
     { icon: Clock, label: 'LENGTH', value: `${duration} min`, view: 'throttles' as ViewName },
     { icon: Hash, label: 'TOPICS', value: `${topics.length} active`, view: 'topics' as ViewName },
-    { icon: Mic, label: 'VOICE', value: getVoice(profile.default_voice).name.replace('The ', ''), view: 'voices' as ViewName },
+    { icon: Mic, label: 'VOICE', value: getVoice(profile.default_voice).name.replace('The ', ''), view: 'throttles' as ViewName },
   ]
 
   return (

@@ -13,7 +13,6 @@ import LoginScreen from './components/views/LoginScreen'
 import Dashboard from './components/views/Dashboard'
 import Topics from './components/views/Topics'
 import Throttles from './components/views/Throttles'
-import Voices from './components/views/Voices'
 import EpisodePreview from './components/views/EpisodePreview'
 import EmailPreview from './components/views/EmailPreview'
 import Profile from './components/views/Profile'
@@ -33,7 +32,7 @@ export default function App() {
   const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth()
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
-  const { topics, addTopic, removeTopic, setWeight, togglePin, setVoiceOverride, addCustomTag, removeCustomTag } = useTopics(userId)
+  const { topics, addTopic, removeTopic, setWeight, togglePin, addCustomTag, removeCustomTag } = useTopics(userId)
   const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode, reset: resetGeneration } = useGenerate()
@@ -106,12 +105,10 @@ export default function App() {
           <Topics
             topics={topics}
             discoveryEnabled={profile.discovery_enabled}
-            defaultVoice={profile.default_voice}
             onAddTopic={addTopic}
             onRemoveTopic={removeTopic}
             onSetWeight={setWeight}
             onTogglePin={togglePin}
-            onSetVoiceOverride={setVoiceOverride}
             onToggleDiscovery={setDiscoveryEnabled}
             onAddCustomTag={addCustomTag}
             onRemoveCustomTag={removeCustomTag}
@@ -123,16 +120,10 @@ export default function App() {
             tone={profile.tone}
             length={profile.length}
             cadence={profile.cadence}
+            defaultVoice={profile.default_voice}
             onSetTone={setTone}
             onSetLength={setLength}
             onSetCadence={setCadence}
-          />
-        )
-      case 'voices':
-        return (
-          <Voices
-            defaultVoice={profile.default_voice}
-            topics={topics}
             onSetDefaultVoice={setDefaultVoice}
           />
         )
