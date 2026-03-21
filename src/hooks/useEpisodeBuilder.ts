@@ -12,8 +12,8 @@ interface UseEpisodeBuilderResult {
 }
 
 /**
- * Calls the build-episode API to generate a fresh episode.
- * Only fetches once on mount — user must explicitly call refresh() to regenerate.
+ * Loads today's episode from Supabase if available.
+ * Falls back to calling build-episode API only if no cached episode exists.
  */
 export function useEpisodeBuilder(
   topics: UserTopic[] | undefined,
@@ -36,7 +36,39 @@ export function useEpisodeBuilder(
     [topics],
   )
 
-  const fetchEpisode = useCallback(async (forceRefresh = false) => {
+  const loadFromDb = useCallback(async (): Promise<boolean> => {
+    if (!userId) return false
+
+    const today = new Date().toISOString().split('T')[0]
+
+    const { data: episode } = await supabase
+      .from('episodes')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .eq('status', 'ready')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!episode) return false
+
+    const { data: segments } = await supabase
+      .from('episode_segments')
+      .select('*')
+      .eq('episode_id', episode.id)
+      .order('sort_order', { ascending: true })
+
+    if (!segments || segments.length === 0) return false
+
+    setServerEpisode({
+      ...episode,
+      segments,
+    })
+    return true
+  }, [userId])
+
+  const buildEpisode = useCallback(async (forceRefresh = false) => {
     if (!topics || topics.length === 0) return
 
     // Cancel any in-flight request
@@ -92,17 +124,28 @@ export function useEpisodeBuilder(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicsKey, tone, length])
 
-  // Only fetch once on mount when topics are available — not on every change
+  // On mount: try DB first, fall back to build-episode API
   useEffect(() => {
     if (hasFetchedRef.current) return
     if (!topics || topics.length === 0) return
     hasFetchedRef.current = true
-    fetchEpisode()
+
+    setLoading(true)
+    loadFromDb().then(found => {
+      if (found) {
+        setLoading(false)
+      } else {
+        buildEpisode()
+      }
+    }).catch(() => {
+      buildEpisode()
+    })
+
     return () => {
       if (abortRef.current) abortRef.current.abort()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicsKey])
+  }, [topicsKey, userId])
 
   // Load past episodes from DB
   useEffect(() => {
@@ -125,6 +168,6 @@ export function useEpisodeBuilder(
     loading,
     error,
     cacheStats,
-    refresh: () => fetchEpisode(true),
+    refresh: () => buildEpisode(true),
   }
 }
