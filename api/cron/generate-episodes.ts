@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ''
-const CRON_SECRET = process.env.CRON_SECRET || ''
+const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
 
 const BUILD_EPISODE_URL = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}/api/build-episode`

@@ -5,7 +5,7 @@ import { generateEmailHtml } from '../lib/email-template.js'
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-const CRON_SECRET = process.env.CRON_SECRET || ''
+const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 
 export function buildDigestEmail(episode: any, userName: string): string {

@@ -8,7 +8,7 @@ import { TOPIC_META } from '../lib/topic-meta.js'
 const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 const anthropicApiKey = process.env.ANTHROPIC_API_KEY || ''
-const CRON_SECRET = process.env.CRON_SECRET || ''
+const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
 
 function hashContent(topicId: string, fetchDate: string, claims: string[]): string {
   const input = topicId + fetchDate + JSON.stringify([...claims].sort())
