@@ -59,7 +59,7 @@ export function useGenerate() {
 
         const data = await res.json()
         // Convert base64 audio to blob URL
-        const audioBlob = base64ToBlob(data.audio, 'audio/mpeg')
+        const audioBlob = base64ToBlob(data.audio, data.contentType || 'audio/wav')
         const blobUrl = URL.createObjectURL(audioBlob)
         audioUrls.push(blobUrl)
 

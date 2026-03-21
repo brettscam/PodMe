@@ -1,37 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
-// Voice name -> ElevenLabs voice ID mapping
-// Each key maps to a distinct ElevenLabs pre-made voice
-const VOICE_MAP: Record<string, string> = {
-  'southern-gentleman': 'TX3LPaxmHKxFdv7VOQHJ',  // Liam — warm American male
-  'scottish-mentor':    'onwK4e9ZLuTAKqWW03F9',   // Daniel — deep British male
-  'modern-brand-ambassador': 'iP95p4xoKVk53GoZ742B', // Chris — casual male
-  'anchor':        'nPczCjzI2devNBz1zQrb',   // Brian — American narrator
-  'strategist':    'ErXwobaYiN019PkySvjV',   // Antoni — young analytical male
-  'neighbor':      'bIHbv24MWmeRgasZH58o',   // Will — friendly male
-  'correspondent': 'EXAVITQu4vr4xnSDxMaL',   // Bella — crisp female
-  'analyst':       '21m00Tcm4TlvDq8ikWAM',   // Rachel — calm female
-  'host':          'AZnzlk1XvdvUeBnXmlld',   // Domi — strong female
-  'sportscaster':  'VR6AewLTigWG4xSOukaG',   // Arnold — energetic male
-  'storyteller':   'JBFqnCBsd6RMkjVDRZzb',   // George — warm British male
-  'insider':       'jsCqWAovK2LkecY7zXl4',   // Freya — expressive female
-  'professor':     'pFZP5JQG7iQjIQuC4Bku',   // Lily — thoughtful British female
-}
-
-const MODEL_ID = 'eleven_multilingual_v2'
-
-function resolveVoiceId(voiceKey: string): string {
-  return VOICE_MAP[voiceKey] || VOICE_MAP['anchor']
-}
+// Replicate model for Chatterbox TTS
+const CHATTERBOX_MODEL = 'resemble-ai/chatterbox-turbo'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const apiKey = process.env.ELEVENLABS_API_KEY
-  if (!apiKey) {
-    return res.status(500).json({ error: 'ElevenLabs API key not configured' })
+  const apiToken = process.env.REPLICATE_API_TOKEN
+  if (!apiToken) {
+    return res.status(500).json({ error: 'REPLICATE_API_TOKEN not configured' })
   }
 
   const { script, voice, segmentId } = req.body
@@ -41,42 +20,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const voiceId = resolveVoiceId(voice)
-
-    const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    // Create a prediction on Replicate
+    const createRes = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
-        'xi-api-key': apiKey,
+        'Authorization': `Bearer ${apiToken}`,
         'Content-Type': 'application/json',
+        'Prefer': 'wait',
       },
       body: JSON.stringify({
-        text: script,
-        model_id: MODEL_ID,
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-          style: 0.5,
-          use_speaker_boost: true,
+        model: CHATTERBOX_MODEL,
+        input: {
+          text: script,
+          exaggeration: 0.3,
+          cfg_weight: 0.5,
         },
       }),
     })
 
-    if (!ttsRes.ok) {
-      const errorBody = await ttsRes.json().catch(() => ({}))
-      return res.status(ttsRes.status).json({
-        error: 'ElevenLabs API error',
+    if (!createRes.ok) {
+      const errorBody = await createRes.json().catch(() => ({}))
+      console.error('Replicate API error:', createRes.status, errorBody)
+      return res.status(createRes.status).json({
+        error: 'Chatterbox API error',
         detail: errorBody,
       })
     }
 
-    // Stream the audio back
-    const audioBuffer = await ttsRes.arrayBuffer()
+    let prediction = await createRes.json()
+
+    // If the prediction isn't complete yet (Prefer: wait timed out), poll for it
+    while (prediction.status === 'starting' || prediction.status === 'processing') {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      const pollRes = await fetch(prediction.urls.get, {
+        headers: { 'Authorization': `Bearer ${apiToken}` },
+      })
+      prediction = await pollRes.json()
+    }
+
+    if (prediction.status === 'failed') {
+      console.error('Chatterbox prediction failed:', prediction.error)
+      return res.status(500).json({
+        error: 'Chatterbox generation failed',
+        detail: prediction.error,
+      })
+    }
+
+    // Replicate returns a URL to the audio file
+    const audioUrl = prediction.output
+    if (!audioUrl) {
+      return res.status(500).json({ error: 'No audio output from Chatterbox' })
+    }
+
+    // Fetch the audio file and convert to base64
+    const audioRes = await fetch(audioUrl)
+    if (!audioRes.ok) {
+      return res.status(500).json({ error: 'Failed to download generated audio' })
+    }
+
+    const audioBuffer = await audioRes.arrayBuffer()
     const base64Audio = Buffer.from(audioBuffer).toString('base64')
+
+    // Determine content type from the URL or default to wav
+    const contentType = audioUrl.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav'
 
     return res.status(200).json({
       segmentId,
       audio: base64Audio,
-      contentType: 'audio/mpeg',
+      contentType,
     })
   } catch (error) {
     console.error('Generation error:', error)
