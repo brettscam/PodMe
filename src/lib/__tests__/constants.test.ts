@@ -93,8 +93,8 @@ describe('TOPIC_CATALOG', () => {
 })
 
 describe('ALL_VOICES', () => {
-  it('has exactly 4 voices', () => {
-    expect(ALL_VOICES.length).toBe(4)
+  it('has exactly 5 voices', () => {
+    expect(ALL_VOICES.length).toBe(5)
   })
 
   it('each voice has required fields', () => {

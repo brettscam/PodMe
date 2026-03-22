@@ -23,8 +23,8 @@ export default function LoginScreen({ onSignInWithGoogle, loading }: LoginScreen
         {/* Logo */}
         <div className="mb-2">
           <h1 className="text-5xl font-bold tracking-tight">
-            <span className="text-white">puck</span>
-            <span style={{ color: 'var(--accent-peach)' }}>puck</span>
+            <span className="text-white">Pod</span>
+            <span style={{ color: 'var(--accent-peach)' }}>Me</span>
           </h1>
         </div>
 
@@ -77,7 +77,7 @@ export default function LoginScreen({ onSignInWithGoogle, loading }: LoginScreen
         </div>
 
         <p className="text-[10px] mt-6" style={{ color: 'var(--text-muted)' }}>
-          By signing in, you agree to let PuckPuck generate personalized content for you.
+          By signing in, you agree to let PodMe generate personalized content for you.
         </p>
       </div>
     </div>

@@ -3,13 +3,7 @@
     "api/generate-segment.ts": {
       "maxDuration": 120
     },
-    "api/voice-sample.ts": {
-      "maxDuration": 30
-    },
-    "api/list-voices.ts": {
-      "maxDuration": 15
-    },
-    "api/build-episode.ts": {
+"api/build-episode.ts": {
       "maxDuration": 120
     },
     "api/debug-env.ts": {

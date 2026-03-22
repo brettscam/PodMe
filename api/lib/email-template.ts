@@ -7,19 +7,11 @@
 
 // Inline voice data (no Lucide imports)
 const VOICES: Record<string, { name: string; color: string }> = {
-  'southern-gentleman': { name: 'The Southern Gentleman', color: '#FF6B35' },
-  'scottish-mentor': { name: 'The Scottish Mentor', color: '#2563EB' },
-  'modern-brand-ambassador': { name: 'The Brand Voice', color: '#10B981' },
   'anchor': { name: 'The Anchor', color: '#4A90D9' },
   'correspondent': { name: 'The Correspondent', color: '#F4A261' },
-  'analyst': { name: 'The Analyst', color: '#2D8A6E' },
   'neighbor': { name: 'The Neighbor', color: '#D4634A' },
+  'analyst': { name: 'The Analyst', color: '#2D8A6E' },
   'host': { name: 'The Host', color: '#9B59B6' },
-  'sportscaster': { name: 'The Sportscaster', color: '#E74C3C' },
-  'strategist': { name: 'The Strategist', color: '#1B3A5C' },
-  'storyteller': { name: 'The Storyteller', color: '#8E6B47' },
-  'insider': { name: 'The Insider', color: '#E67E22' },
-  'professor': { name: 'The Professor', color: '#2C3E50' },
 }
 
 const TOPIC_COLORS: Record<string, string> = {

@@ -23,8 +23,8 @@ export default function ShareLanding({ shareToken: _shareToken }: ShareLandingPr
         {/* Branding */}
         <div className="text-center mb-8">
           <div className="text-2xl font-bold tracking-tight">
-            <span className="text-white">puck</span>
-            <span style={{ color: 'var(--accent-pulse)' }}>puck</span>
+            <span className="text-white">Pod</span>
+            <span style={{ color: 'var(--accent-pulse)' }}>Me</span>
           </div>
         </div>
 
@@ -140,7 +140,7 @@ export default function ShareLanding({ shareToken: _shareToken }: ShareLandingPr
 
         {/* CTA */}
         <div className="text-center py-6">
-          <p className="text-sm font-bold text-white mb-2">Get your own PuckPuck</p>
+          <p className="text-sm font-bold text-white mb-2">Get your own PodMe</p>
           <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
             AI-generated personalized news podcast, tailored to you.
           </p>
