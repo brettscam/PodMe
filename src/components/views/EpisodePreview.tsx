@@ -233,8 +233,10 @@ export default function EpisodePreview({
     setIsMuted(!isMuted)
   }, [isMuted])
 
-  function handleShare() {
-    if (!shareToken) onGenerateShare()
+  async function handleShare() {
+    if (!shareToken) {
+      await onGenerateShare()
+    }
     setShowShareModal(true)
   }
 
@@ -607,43 +609,6 @@ export default function EpisodePreview({
         </div>
       )}
 
-      {/* Voice Interaction Preview */}
-      <div
-        className="rounded-card p-4"
-        style={{
-          backgroundColor: 'rgba(244,162,97,0.06)',
-          border: '1px solid rgba(244,162,97,0.15)',
-        }}
-      >
-        <span className="caps-label text-[10px]" style={{ color: 'var(--accent-peach)' }}>VOICE INTERACTION PREVIEW</span>
-        <div className="mt-3 space-y-2.5">
-          <div className="flex justify-end">
-            <div
-              className="max-w-[80%] px-3 py-2 rounded-2xl rounded-br-md text-xs"
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Tell me more about the NVIDIA guidance.
-            </div>
-          </div>
-          <div className="flex justify-start">
-            <div
-              className="max-w-[80%] px-3 py-2 rounded-2xl rounded-bl-md text-xs leading-relaxed"
-              style={{
-                backgroundColor: 'rgba(74,144,217,0.15)',
-                color: 'var(--text-primary)',
-              }}
-            >
-              NVIDIA's forward guidance suggests data center revenue could hit $22B next quarter. The key shift is inference workloads now approaching 40% of total GPU demand, up from 25% last quarter. According to the Wall Street Journal, this signals a maturing AI deployment cycle.
-            </div>
-          </div>
-        </div>
-        <p className="text-[10px] mt-3" style={{ color: 'var(--text-muted)' }}>
-          Voice interaction coming soon. Ask questions, dig deeper, get sources.
-        </p>
-      </div>
 
       {/* Past Episodes */}
       {pastEpisodes.length > 0 && (
@@ -690,10 +655,10 @@ export default function EpisodePreview({
       )}
 
       {/* Share Modal */}
-      {showShareModal && shareToken && (
+      {showShareModal && (
         <ShareModal
           episode={activeEpisode}
-          shareUrl={getShareUrl(shareToken)}
+          shareUrl={shareToken ? getShareUrl(shareToken) : ''}
           copied={copied}
           listenCount={listenCount}
           onCopy={onCopy}

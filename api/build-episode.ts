@@ -249,6 +249,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const defaultVoice = (params.default_voice as string) || DEFAULT_VOICE
   const dateOverride = params.date as string | undefined
 
+  if (!anthropicApiKey) {
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured — add it in Vercel env vars' })
+  }
+
   if (!topicsParam) {
     return res.status(400).json({ error: 'Missing topics parameter' })
   }
