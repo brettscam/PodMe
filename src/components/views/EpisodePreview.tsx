@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Share2, ExternalLink, Clock, Radio, ChevronRight, Volume2, VolumeX, Zap, RefreshCw } from 'lucide-react'
 import type { Episode } from '../../lib/types'
-import type { PipelineStep } from '../../lib/pipeline'
 import { formatSeconds, getVoice } from '../../lib/constants'
 import SegmentRow from '../ui/SegmentRow'
 import ShareModal from '../ui/ShareModal'
 import EpisodeLoadingCard from '../ui/EpisodeLoadingCard'
-import PipelineStatus from '../ui/PipelineStatus'
 
 function TierDot({ tier }: { tier: number }) {
   const color = tier === 1 ? 'var(--accent-blue)' : tier === 2 ? 'var(--success)' : 'var(--text-muted)'
@@ -20,7 +18,6 @@ interface GenerationProgress {
   segmentName: string
   audioUrls: string[]
   error?: string
-  steps: PipelineStep[]
 }
 
 interface EpisodePreviewProps {
@@ -39,14 +36,13 @@ interface EpisodePreviewProps {
   onRegenerate?: () => void
   episodeLoading?: boolean
   episodeError?: string | null
-  buildSteps?: PipelineStep[]
 }
 
 export default function EpisodePreview({
   episode, pastEpisodes, shareToken, copied, listenCount,
   onGenerateShare, getShareUrl, onCopy, onShare,
   generationProgress, generatedAudioUrls, onGenerate, onRegenerate,
-  episodeLoading, episodeError, buildSteps,
+  episodeLoading, episodeError,
 }: EpisodePreviewProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -68,25 +64,11 @@ export default function EpisodePreview({
     return (
       <div className="space-y-4">
         {episodeLoading ? (
-          <div>
-            <EpisodeLoadingCard />
-            {buildSteps && buildSteps.length > 0 && (
-              <div className="mt-3">
-                <PipelineStatus steps={buildSteps} />
-              </div>
-            )}
-          </div>
+          <EpisodeLoadingCard />
         ) : episodeError ? (
-          <div className="space-y-3">
-            {buildSteps && buildSteps.length > 0 && (
-              <PipelineStatus steps={buildSteps} error={episodeError} />
-            )}
-            {(!buildSteps || buildSteps.length === 0) && (
-              <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
-                <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
-                <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>{episodeError}</p>
-              </div>
-            )}
+          <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
+            <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
+            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>{episodeError}</p>
             {onGenerate && (
               <button
                 onClick={onGenerate}
@@ -399,33 +381,22 @@ export default function EpisodePreview({
               }}
             />
           </div>
-          {generationProgress.steps.length > 0 && (
-            <div className="mt-3">
-              <PipelineStatus steps={generationProgress.steps} compact />
-            </div>
-          )}
         </div>
       )}
 
       {generationProgress && generationProgress.status === 'error' && (
-        <div className="space-y-3">
-          {generationProgress.steps.length > 0 ? (
-            <PipelineStatus steps={generationProgress.steps} error={generationProgress.error || 'Audio generation failed'} />
-          ) : (
-            <div
-              className="rounded-card p-4 flex items-center gap-3"
-              style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
-            >
-              <p className="text-xs text-white">{generationProgress.error || 'Generation failed'}</p>
-            </div>
-          )}
+        <div
+          className="rounded-card p-4"
+          style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
+        >
+          <p className="text-xs text-white mb-2">{generationProgress.error || 'Audio generation failed'}</p>
           {onGenerate && (
             <button
               onClick={onGenerate}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full py-2 rounded-xl text-xs font-semibold"
               style={{ background: 'linear-gradient(135deg, var(--accent-pulse), #E85D26)', color: 'white' }}
             >
-              Retry Audio Generation
+              Retry
             </button>
           )}
         </div>

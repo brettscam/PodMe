@@ -1,23 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { Episode, UserTopic, Tone, Length, BuildEpisodeResponse } from '../lib/types'
 import { supabase } from '../lib/supabase'
-import type { PipelineStep } from '../lib/pipeline'
-import { createBuildSteps } from '../lib/pipeline'
-
-export interface EpisodeBuildProgress {
-  status: 'idle' | 'loading_db' | 'building' | 'complete' | 'error'
-  steps: PipelineStep[]
-  currentStepId: string | null
-  startedAt: number | null
-  error: string | null
-}
 
 interface UseEpisodeBuilderResult {
   currentEpisode: Episode | null
   pastEpisodes: Episode[]
   loading: boolean
   error: string | null
-  buildProgress: EpisodeBuildProgress
   cacheStats: { hits: number; misses: number; fallbacks: number } | null
   refresh: () => void
 }
@@ -25,7 +14,6 @@ interface UseEpisodeBuilderResult {
 /**
  * Loads today's episode from Supabase if available.
  * Falls back to calling build-episode API only if no cached episode exists.
- * Now with step-by-step pipeline tracking.
  */
 export function useEpisodeBuilder(
   topics: UserTopic[] | undefined,
@@ -39,9 +27,6 @@ export function useEpisodeBuilder(
   const [error, setError] = useState<string | null>(null)
   const [cacheStats, setCacheStats] = useState<{ hits: number; misses: number; fallbacks: number } | null>(null)
   const [dbPastEpisodes, setDbPastEpisodes] = useState<Episode[]>([])
-  const [buildProgress, setBuildProgress] = useState<EpisodeBuildProgress>({
-    status: 'idle', steps: [], currentStepId: null, startedAt: null, error: null,
-  })
   const abortRef = useRef<AbortController | null>(null)
   const hasFetchedRef = useRef(false)
 
@@ -51,98 +36,62 @@ export function useEpisodeBuilder(
     [topics],
   )
 
-  const updateStep = useCallback((stepId: string, update: Partial<PipelineStep>) => {
-    setBuildProgress(prev => ({
-      ...prev,
-      currentStepId: update.status === 'running' ? stepId : prev.currentStepId,
-      steps: prev.steps.map(s => s.id === stepId ? { ...s, ...update } : s),
-    }))
-  }, [])
-
   const loadFromDb = useCallback(async (): Promise<boolean> => {
     if (!userId) return false
 
-    const today = new Date().toISOString().split('T')[0]
+    try {
+      const today = new Date().toISOString().split('T')[0]
 
-    const { data: episode } = await supabase
-      .from('episodes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('date', today)
-      .eq('status', 'ready')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+      const { data: episode } = await supabase
+        .from('episodes')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', today)
+        .eq('status', 'ready')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
 
-    if (!episode) return false
+      if (!episode) return false
 
-    const { data: segments } = await supabase
-      .from('episode_segments')
-      .select('*')
-      .eq('episode_id', episode.id)
-      .order('sort_order', { ascending: true })
+      const { data: segments } = await supabase
+        .from('episode_segments')
+        .select('*')
+        .eq('episode_id', episode.id)
+        .order('sort_order', { ascending: true })
 
-    if (!segments || segments.length === 0) return false
+      if (!segments || segments.length === 0) return false
 
-    setServerEpisode({
-      ...episode,
-      segments,
-    })
-    return true
+      setServerEpisode({
+        ...episode,
+        segments,
+      })
+      return true
+    } catch (err) {
+      console.error('[useEpisodeBuilder] loadFromDb error:', err)
+      return false
+    }
   }, [userId])
 
   const buildEpisode = useCallback(async (forceRefresh = false) => {
-    if (!topics || topics.length === 0) return
+    // NEVER return silently — always show loading or error
+    if (!topics || topics.length === 0) {
+      console.warn('[useEpisodeBuilder] buildEpisode called with no topics')
+      setError('No topics configured. Add topics in the Topics tab first.')
+      return
+    }
 
     // Cancel any in-flight request
     if (abortRef.current) abortRef.current.abort()
     const controller = new AbortController()
     abortRef.current = controller
 
-    const steps = createBuildSteps()
-    const startedAt = Date.now()
+    console.log('[useEpisodeBuilder] buildEpisode starting', { topicCount: topics.length, tone, length, forceRefresh })
 
     setLoading(true)
     setError(null)
-    setBuildProgress({
-      status: 'building',
-      steps,
-      currentStepId: 'health_check',
-      startedAt,
-      error: null,
-    })
 
     try {
-      // Step 1: Health check
-      updateStep('health_check', { status: 'running', startedAt: Date.now() })
-      try {
-        const healthRes = await fetch('/api/health', { signal: controller.signal })
-        const healthData = await healthRes.json()
-
-        if (!healthData.pipeline_ready?.can_build_episode) {
-          const broken = Object.entries(healthData.services || {})
-            .filter(([, v]) => (v as { status: string }).status !== 'ok')
-            .map(([k, v]) => `${k}: ${(v as { error?: string }).error || 'failed'}`)
-          throw new Error(`Pipeline not ready — ${broken.join('; ')}`)
-        }
-        updateStep('health_check', { status: 'success', completedAt: Date.now() })
-      } catch (healthErr) {
-        // Health check is best-effort; log but continue
-        if (healthErr instanceof Error && healthErr.name === 'AbortError') throw healthErr
-        updateStep('health_check', {
-          status: 'error',
-          completedAt: Date.now(),
-          error: healthErr instanceof Error ? healthErr.message : 'Health check failed',
-        })
-        // If it's a hard pipeline failure, stop
-        if (healthErr instanceof Error && healthErr.message.includes('Pipeline not ready')) {
-          throw healthErr
-        }
-      }
-
-      // Steps 2-5: build-episode API handles these internally
-      updateStep('fetch_rss', { status: 'running', startedAt: Date.now() })
-
       const topicsPayload = topics.map(t => ({
         topic_id: t.topic_id,
         weight: t.weight,
@@ -156,6 +105,8 @@ export function useEpisodeBuilder(
       if (forceRefresh) body.force_refresh = true
       if (userId) body.user_id = userId
 
+      console.log('[useEpisodeBuilder] calling /api/build-episode')
+
       const response = await fetch('/api/build-episode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -163,53 +114,33 @@ export function useEpisodeBuilder(
         signal: controller.signal,
       })
 
+      console.log('[useEpisodeBuilder] build-episode response:', response.status)
+
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}))
-        const errMsg = errBody.error || `API error: ${response.status}`
-
-        // Mark the appropriate step as failed based on error
-        if (errMsg.includes('RSS') || errMsg.includes('articles')) {
-          updateStep('fetch_rss', { status: 'error', completedAt: Date.now(), error: errMsg })
-        } else if (errMsg.includes('Script') || errMsg.includes('ANTHROPIC')) {
-          updateStep('fetch_rss', { status: 'success', completedAt: Date.now() })
-          updateStep('generate_scripts', { status: 'error', completedAt: Date.now(), error: errMsg })
-        } else {
-          updateStep('fetch_rss', { status: 'error', completedAt: Date.now(), error: errMsg })
-        }
-        throw new Error(errMsg)
+        throw new Error(errBody.error || `API error: ${response.status}`)
       }
 
-      // Mark all build steps as success
-      updateStep('fetch_rss', { status: 'success', completedAt: Date.now() })
-      updateStep('generate_scripts', { status: 'success', completedAt: Date.now() })
-      updateStep('polish_episode', { status: 'success', completedAt: Date.now() })
-      updateStep('save_episode', { status: 'success', completedAt: Date.now() })
-
       const data: BuildEpisodeResponse = await response.json()
+      console.log('[useEpisodeBuilder] episode built successfully:', {
+        title: data.episode?.title,
+        segmentCount: data.episode?.segments?.length,
+      })
       setServerEpisode(data.episode)
       setCacheStats(data.cache_stats)
-
-      setBuildProgress(prev => ({
-        ...prev,
-        status: 'complete',
-        currentStepId: null,
-      }))
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') return
-      console.error('Episode generation failed:', err)
-      const errMsg = err instanceof Error ? err.message : 'Failed to build episode'
-      setError(errMsg)
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('[useEpisodeBuilder] request aborted')
+        return
+      }
+      console.error('[useEpisodeBuilder] buildEpisode error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to build episode')
       setServerEpisode(null)
-      setBuildProgress(prev => ({
-        ...prev,
-        status: 'error',
-        error: errMsg,
-      }))
     } finally {
       setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicsKey, tone, length, userId, updateStep])
+  }, [topicsKey, tone, length, userId])
 
   // On mount: try DB first, fall back to build-episode API
   useEffect(() => {
@@ -217,17 +148,18 @@ export function useEpisodeBuilder(
     if (!topics || topics.length === 0) return
     hasFetchedRef.current = true
 
+    console.log('[useEpisodeBuilder] initial load starting')
     setLoading(true)
-    setBuildProgress(prev => ({ ...prev, status: 'loading_db' }))
-
     loadFromDb().then(found => {
       if (found) {
+        console.log('[useEpisodeBuilder] loaded from DB cache')
         setLoading(false)
-        setBuildProgress(prev => ({ ...prev, status: 'complete' }))
       } else {
+        console.log('[useEpisodeBuilder] no cached episode, building fresh')
         buildEpisode()
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[useEpisodeBuilder] loadFromDb failed:', err)
       buildEpisode()
     })
 
@@ -269,8 +201,10 @@ export function useEpisodeBuilder(
     pastEpisodes: dbPastEpisodes,
     loading,
     error,
-    buildProgress,
     cacheStats,
-    refresh: () => buildEpisode(true),
+    refresh: () => {
+      console.log('[useEpisodeBuilder] refresh() called')
+      buildEpisode(true)
+    },
   }
 }

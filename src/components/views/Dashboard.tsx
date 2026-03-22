@@ -1,9 +1,7 @@
 import { useMemo } from 'react'
 import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb, Eye, MessageSquareQuote } from 'lucide-react'
 import EpisodeLoadingCard from '../ui/EpisodeLoadingCard'
-import PipelineStatus from '../ui/PipelineStatus'
 import type { UserProfile, UserTopic, ViewName, KnowledgeBlock, Episode } from '../../lib/types'
-import type { PipelineStep } from '../../lib/pipeline'
 import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG, getPersonalizedKnowledgeBlock } from '../../lib/constants'
 import TopicChip from '../ui/TopicChip'
 import ToggleSwitch from '../ui/ToggleSwitch'
@@ -18,7 +16,6 @@ interface DashboardProps {
   generationError?: string
   episodeLoading?: boolean
   episodeError?: string | null
-  buildSteps?: PipelineStep[]
   onNavigate: (view: ViewName) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
@@ -27,7 +24,7 @@ interface DashboardProps {
   onRegenerate?: () => void
 }
 
-export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, generationError, episodeLoading, episodeError, buildSteps, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, generationError, episodeLoading, episodeError, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const knowledgeBlock = useMemo<KnowledgeBlock>(() => getPersonalizedKnowledgeBlock(topics.map(t => t.topic_id)), [topics])
 
@@ -42,25 +39,11 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
     <div className="space-y-4">
       {/* Player — front and center */}
       {episodeLoading ? (
-        <div>
-          <EpisodeLoadingCard />
-          {buildSteps && buildSteps.length > 0 && (
-            <div className="mt-3">
-              <PipelineStatus steps={buildSteps} />
-            </div>
-          )}
-        </div>
+        <EpisodeLoadingCard />
       ) : episodeError ? (
-        <div className="space-y-3">
-          {buildSteps && buildSteps.length > 0 && (
-            <PipelineStatus steps={buildSteps} error={episodeError} />
-          )}
-          {(!buildSteps || buildSteps.length === 0) && (
-            <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
-              <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>{episodeError}</p>
-            </div>
-          )}
+        <div className="rounded-card p-6" style={{ background: 'linear-gradient(135deg, #1a0f0f 0%, #1E2433 100%)', border: '1px solid rgba(239,68,68,0.3)' }}>
+          <p className="text-sm font-semibold text-red-400 mb-2">Episode generation failed</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>{episodeError}</p>
           <button
             onClick={onGenerate}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all-200 hover:scale-[1.01] active:scale-[0.99]"

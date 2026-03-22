@@ -33,7 +33,7 @@ export default function App() {
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
   const { topics, addTopic, removeTopic, setWeight, togglePin, addCustomTag, removeCustomTag } = useTopics(userId)
-  const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, buildProgress, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
+  const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode, loadCachedAudio, reset: resetGeneration } = useGenerate()
   const cacheLoadAttemptedRef = useRef(false)
@@ -46,6 +46,24 @@ export default function App() {
     cacheLoadAttemptedRef.current = true
     loadCachedAudio(currentEpisode.segments)
   }, [currentEpisode, genProgress.status, loadCachedAudio])
+
+  // Auto-generate audio when episode finishes building (one-button flow)
+  useEffect(() => {
+    if (!currentEpisode || !currentEpisode.segments || currentEpisode.segments.length === 0) return
+    if (genProgress.status !== 'idle') return
+    if (cacheLoadAttemptedRef.current) return // already handled by cache load
+    console.log('[App] Episode ready, auto-generating audio')
+    generateEpisode(currentEpisode.segments)
+  }, [currentEpisode, genProgress.status, generateEpisode])
+
+  const handleGenerate = useCallback(() => {
+    console.log('[App] handleGenerate called', { hasEpisode: !!currentEpisode })
+    if (currentEpisode) {
+      generateEpisode(currentEpisode.segments)
+    } else {
+      refreshEpisode()
+    }
+  }, [currentEpisode, generateEpisode, refreshEpisode])
 
   const handleRegenerate = useCallback(() => {
     resetGeneration()
@@ -106,8 +124,7 @@ export default function App() {
             onPreviewEmail={() => setShowEmailPreview(true)}
             episodeLoading={episodeLoading}
             episodeError={episodeError}
-            buildSteps={buildProgress.steps}
-            onGenerate={() => currentEpisode ? generateEpisode(currentEpisode.segments) : refreshEpisode()}
+            onGenerate={handleGenerate}
             onRegenerate={handleRegenerate}
           />
         )
@@ -152,11 +169,10 @@ export default function App() {
             onShare={nativeShare}
             generationProgress={genProgress}
             generatedAudioUrls={genProgress.status === 'complete' ? genProgress.audioUrls : undefined}
-            onGenerate={() => currentEpisode ? generateEpisode(currentEpisode.segments) : refreshEpisode()}
+            onGenerate={handleGenerate}
             onRegenerate={handleRegenerate}
             episodeLoading={episodeLoading}
             episodeError={episodeError}
-            buildSteps={buildProgress.steps}
           />
         )
       case 'profile':
