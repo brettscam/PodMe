@@ -7,7 +7,7 @@ export type Weight = 'featured' | 'standard' | 'brief'
 export type SourceTier = 1 | 2 | 3 | 4
 export type SourcePreference = 'preferred' | 'muted'
 
-export type ViewName = 'home' | 'topics' | 'throttles' | 'episode' | 'profile'
+export type ViewName = 'home' | 'topics' | 'episode' | 'profile'
 
 export interface LifeContext {
   id: string

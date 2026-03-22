@@ -12,7 +12,6 @@ import BottomNav from './components/layout/BottomNav'
 import LoginScreen from './components/views/LoginScreen'
 import Dashboard from './components/views/Dashboard'
 import Topics from './components/views/Topics'
-import Throttles from './components/views/Throttles'
 import EpisodePreview from './components/views/EpisodePreview'
 import EmailPreview from './components/views/EmailPreview'
 import Profile from './components/views/Profile'
@@ -119,9 +118,6 @@ export default function App() {
             generationStatus={genProgress.status}
             generationError={genProgress.error}
             onNavigate={setCurrentView}
-            onDeliveryTimeChange={setDeliveryTime}
-            onToggleEmailDigest={setEmailDigest}
-            onPreviewEmail={() => setShowEmailPreview(true)}
             episodeLoading={episodeLoading}
             episodeError={episodeError}
             onGenerate={handleGenerate}
@@ -140,19 +136,6 @@ export default function App() {
             onToggleDiscovery={setDiscoveryEnabled}
             onAddCustomTag={addCustomTag}
             onRemoveCustomTag={removeCustomTag}
-          />
-        )
-      case 'throttles':
-        return (
-          <Throttles
-            tone={profile.tone}
-            length={profile.length}
-            cadence={profile.cadence}
-            defaultVoice={profile.default_voice}
-            onSetTone={setTone}
-            onSetLength={setLength}
-            onSetCadence={setCadence}
-            onSetDefaultVoice={setDefaultVoice}
           />
         )
       case 'episode':
@@ -184,12 +167,12 @@ export default function App() {
             onSetTone={setTone}
             onSetLength={setLength}
             onSetCadence={setCadence}
+            onSetDefaultVoice={setDefaultVoice}
             onDeliveryTimeChange={setDeliveryTime}
             onToggleEmailDigest={setEmailDigest}
             onPreviewEmail={() => setShowEmailPreview(true)}
             onToggleLifeContext={toggleLifeContext}
             onUpdateLifeContextConfig={updateLifeContextConfig}
-            onNavigate={setCurrentView}
             onSignOut={signOut}
           />
         )

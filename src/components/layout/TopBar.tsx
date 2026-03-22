@@ -5,7 +5,6 @@ import type { ViewName } from '../../lib/types'
 const VIEW_LABELS: Record<ViewName, string> = {
   home: 'DASHBOARD',
   topics: 'TOPICS',
-  throttles: 'THROTTLES',
   episode: 'EPISODE',
   profile: 'PROFILE',
 }
@@ -37,8 +36,8 @@ export default function TopBar({ currentView, onBack, userName, onSignOut }: Top
           </button>
         )}
         <div className="text-lg font-bold tracking-tight">
-          <span className="text-white">puck</span>
-          <span style={{ color: 'var(--accent-peach)' }}>puck</span>
+          <span className="text-white">Pod</span>
+          <span style={{ color: 'var(--accent-peach)' }}>Me</span>
         </div>
       </div>
 

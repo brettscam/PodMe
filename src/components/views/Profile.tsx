@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
-  Gauge, Clock, Sliders, Baby, Dumbbell, BookOpen, Home as HomeIcon, Briefcase,
+  Gauge, Clock, Mic, Sliders, Baby, Dumbbell, BookOpen, Home as HomeIcon, Briefcase,
   ChevronDown, ChevronUp, Mail, Eye, ChevronRight,
 } from 'lucide-react'
-import type { UserProfile, Tone, Length, Cadence, LifeContext, ViewName } from '../../lib/types'
+import type { UserProfile, Tone, Length, Cadence, LifeContext } from '../../lib/types'
+import { ALL_VOICES } from '../../lib/constants'
 import ToggleSwitch from '../ui/ToggleSwitch'
 import ThrottleOption from '../ui/ThrottleOption'
 
@@ -22,24 +23,26 @@ interface ProfileProps {
   onSetTone: (tone: Tone) => void
   onSetLength: (length: Length) => void
   onSetCadence: (cadence: Cadence) => void
+  onSetDefaultVoice: (voice: string) => void
   onDeliveryTimeChange: (time: string) => void
   onToggleEmailDigest: (enabled: boolean) => void
   onPreviewEmail?: () => void
   onToggleLifeContext: (id: string, enabled: boolean) => void
   onUpdateLifeContextConfig: (id: string, config: Record<string, string>) => void
-  onNavigate: (view: ViewName) => void
   onSignOut: () => void
 }
 
 export default function Profile({
   profile, userName, lifeContexts,
-  onSetTone, onSetLength, onSetCadence,
+  onSetTone, onSetLength, onSetCadence, onSetDefaultVoice,
   onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail,
   onToggleLifeContext, onUpdateLifeContextConfig,
-  onNavigate, onSignOut,
+  onSignOut,
 }: ProfileProps) {
   const [expandedContext, setExpandedContext] = useState<string | null>(null)
   const [showThrottles, setShowThrottles] = useState(false)
+
+  const currentVoice = ALL_VOICES.find(v => v.id === profile.default_voice) || ALL_VOICES[0]
 
   return (
     <div className="space-y-4">
@@ -51,7 +54,7 @@ export default function Profile({
         </h2>
       </div>
 
-      {/* Podcast Controls (Throttles) */}
+      {/* Podcast Controls (Throttles + Voice) */}
       <div
         className="rounded-card overflow-hidden"
         style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
@@ -65,7 +68,7 @@ export default function Profile({
             <div className="text-left">
               <p className="text-sm font-semibold text-white">Podcast Controls</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {profile.tone} &middot; {profile.length === 'quick' ? '10 min' : profile.length === 'standard' ? '25 min' : '42 min'} &middot; {profile.cadence}
+                {profile.tone} &middot; {profile.length === 'quick' ? '10 min' : profile.length === 'standard' ? '25 min' : '42 min'} &middot; {profile.cadence} &middot; {currentVoice.name.replace('The ', '')}
               </p>
             </div>
           </div>
@@ -152,6 +155,23 @@ export default function Profile({
                   selected={profile.cadence === 'weekly'}
                   onClick={() => onSetCadence('weekly')}
                 />
+              </div>
+            </div>
+
+            {/* Voice */}
+            <div>
+              <span className="caps-label text-[9px]" style={{ color: 'var(--text-muted)' }}>VOICE</span>
+              <div className="space-y-1 mt-2">
+                {ALL_VOICES.map(voice => (
+                  <ThrottleOption
+                    key={voice.id}
+                    icon={Mic}
+                    label={voice.name}
+                    description={voice.desc}
+                    selected={profile.default_voice === voice.id}
+                    onClick={() => onSetDefaultVoice(voice.id)}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -347,26 +367,6 @@ export default function Profile({
             )
           })}
         </div>
-      </div>
-
-      {/* Quick Links */}
-      <div className="space-y-2">
-        <button
-          onClick={() => onNavigate('topics')}
-          className="w-full flex items-center justify-between p-4 rounded-card transition-all-200"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-        >
-          <span className="text-sm font-semibold text-white">Manage Topics</span>
-          <ChevronRight size={16} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
-        </button>
-        <button
-          onClick={() => onNavigate('throttles')}
-          className="w-full flex items-center justify-between p-4 rounded-card transition-all-200"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
-        >
-          <span className="text-sm font-semibold text-white">Voice & Throttles</span>
-          <ChevronRight size={16} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
-        </button>
       </div>
 
       {/* Sign Out */}

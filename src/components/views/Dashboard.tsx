@@ -1,10 +1,9 @@
 import { useMemo } from 'react'
-import { Gauge, Clock, Hash, Mic, ChevronRight, BookOpen, Mail, Lightbulb, Eye, MessageSquareQuote } from 'lucide-react'
+import { ChevronRight, BookOpen, Lightbulb, MessageSquareQuote } from 'lucide-react'
 import EpisodeLoadingCard from '../ui/EpisodeLoadingCard'
 import type { UserProfile, UserTopic, ViewName, KnowledgeBlock, Episode } from '../../lib/types'
-import { getTopic, getVoice, estimateMinutes, TOPIC_CATALOG, getPersonalizedKnowledgeBlock } from '../../lib/constants'
+import { getTopic, estimateMinutes, TOPIC_CATALOG, getPersonalizedKnowledgeBlock } from '../../lib/constants'
 import TopicChip from '../ui/TopicChip'
-import ToggleSwitch from '../ui/ToggleSwitch'
 import MiniPlayer from '../ui/MiniPlayer'
 
 interface DashboardProps {
@@ -17,23 +16,13 @@ interface DashboardProps {
   episodeLoading?: boolean
   episodeError?: string | null
   onNavigate: (view: ViewName) => void
-  onDeliveryTimeChange: (time: string) => void
-  onToggleEmailDigest: (enabled: boolean) => void
-  onPreviewEmail?: () => void
   onGenerate?: () => void
   onRegenerate?: () => void
 }
 
-export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, generationError, episodeLoading, episodeError, onNavigate, onDeliveryTimeChange, onToggleEmailDigest, onPreviewEmail, onGenerate, onRegenerate }: DashboardProps) {
+export default function Dashboard({ profile, topics, episode, generatedAudioUrls, generationStatus, generationError, episodeLoading, episodeError, onNavigate, onGenerate, onRegenerate }: DashboardProps) {
   const duration = estimateMinutes(profile.length)
   const knowledgeBlock = useMemo<KnowledgeBlock>(() => getPersonalizedKnowledgeBlock(topics.map(t => t.topic_id)), [topics])
-
-  const quickControls = [
-    { icon: Gauge, label: 'TONE', value: profile.tone.charAt(0).toUpperCase() + profile.tone.slice(1), view: 'throttles' as ViewName },
-    { icon: Clock, label: 'LENGTH', value: `${duration} min`, view: 'throttles' as ViewName },
-    { icon: Hash, label: 'TOPICS', value: `${topics.length} active`, view: 'topics' as ViewName },
-    { icon: Mic, label: 'VOICE', value: getVoice(profile.default_voice).name.replace('The ', ''), view: 'throttles' as ViewName },
-  ]
 
   return (
     <div className="space-y-4">
@@ -165,35 +154,6 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
         </div>
       </div>
 
-      {/* Quick Controls Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {quickControls.map(({ icon: Icon, label, value, view }) => (
-          <button
-            key={label}
-            onClick={() => onNavigate(view)}
-            className="flex items-center gap-3 p-4 rounded-card transition-all-200 text-left group"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'
-              e.currentTarget.style.borderColor = 'rgba(244,162,97,0.3)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-card)'
-              e.currentTarget.style.borderColor = 'var(--border-subtle)'
-            }}
-          >
-            <Icon size={22} strokeWidth={1.5} style={{ color: 'var(--accent-peach)' }} />
-            <div>
-              <span className="caps-label text-[9px]" style={{ color: 'var(--text-muted)' }}>{label}</span>
-              <p className="text-sm font-semibold text-white mt-0.5">{value}</p>
-            </div>
-          </button>
-        ))}
-      </div>
-
       {/* Episode Preview Button */}
       <button
         onClick={() => onNavigate('episode')}
@@ -209,83 +169,6 @@ export default function Dashboard({ profile, topics, episode, generatedAudioUrls
         </div>
         <ChevronRight size={20} strokeWidth={1.5} style={{ color: 'rgba(255,255,255,0.5)' }} />
       </button>
-
-      {/* Delivery Time */}
-      <div
-        className="flex items-center justify-between p-4 rounded-card"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div>
-          <span className="caps-label text-[10px]" style={{ color: 'var(--text-muted)' }}>DELIVERY TIME</span>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Ready by {profile.delivery_time.replace(/^0/, '')} AM every morning
-          </p>
-        </div>
-        <input
-          type="time"
-          value={profile.delivery_time}
-          onChange={e => onDeliveryTimeChange(e.target.value)}
-          className="text-sm font-semibold px-2 py-1 rounded-lg"
-          style={{
-            backgroundColor: 'rgba(255,255,255,0.06)',
-            border: '1px solid var(--border-subtle)',
-            color: 'var(--text-primary)',
-            colorScheme: 'dark',
-          }}
-        />
-      </div>
-
-      {/* Email Digest Toggle */}
-      <div
-        className="flex items-center justify-between p-4 rounded-card"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <Mail size={18} strokeWidth={1.5} style={{ color: 'var(--accent-blue)' }} />
-          <div>
-            <p className="text-sm font-semibold text-white">Email Digest</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Receive a written summary of your episode via email
-            </p>
-          </div>
-        </div>
-        <ToggleSwitch checked={profile.email_digest} onChange={onToggleEmailDigest} />
-      </div>
-
-      {/* Email Preview Button (shown when digest is on) */}
-      {profile.email_digest && onPreviewEmail && (
-        <button
-          onClick={onPreviewEmail}
-          className="w-full flex items-center justify-between p-4 rounded-card transition-all-200"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.borderColor = 'var(--border-hover)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = 'var(--border-subtle)'
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <Eye size={18} strokeWidth={1.5} style={{ color: 'var(--accent-pulse)' }} />
-            <div className="text-left">
-              <p className="text-sm font-semibold text-white">Preview Email Digest</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                See what tomorrow's email will look like
-              </p>
-            </div>
-          </div>
-          <ChevronRight size={16} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />
-        </button>
-      )}
 
     </div>
   )

@@ -1,11 +1,9 @@
-import { Home, Hash, SlidersHorizontal, Radio, User } from 'lucide-react'
+import { Home, Hash, User } from 'lucide-react'
 import type { ViewName } from '../../lib/types'
 
 const NAV_ITEMS: { view: ViewName; icon: typeof Home; label: string }[] = [
   { view: 'home', icon: Home, label: 'Home' },
   { view: 'topics', icon: Hash, label: 'Topics' },
-  { view: 'throttles', icon: SlidersHorizontal, label: 'Throttles' },
-  { view: 'episode', icon: Radio, label: 'Episode' },
   { view: 'profile', icon: User, label: 'Profile' },
 ]
 
