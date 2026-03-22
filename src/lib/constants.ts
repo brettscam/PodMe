@@ -1,6 +1,6 @@
 import {
   BarChart3, Cpu, Globe, MapPin, Briefcase, FlaskConical, Camera, Trophy,
-  Plane, Clapperboard, Radio, Zap, TrendingUp, Users,
+  Plane, Clapperboard, Radio, Zap, TrendingUp, Users, Mic,
 } from 'lucide-react'
 import type { TopicDefinition, VoiceDefinition, Episode, EpisodeSegment, SegmentSource, KnowledgeBlock, UserTopic } from './types'
 
@@ -18,10 +18,11 @@ export const TOPIC_CATALOG: TopicDefinition[] = [
 ]
 
 export const BASE_VOICES: VoiceDefinition[] = [
-  { id: 'anchor', name: 'The Anchor', desc: 'Warm, authoritative, NPR-adjacent', color: '#4A90D9', icon: Radio },
-  { id: 'correspondent', name: 'The Correspondent', desc: 'Crisp, energetic, faster pace', color: '#F4A261', icon: Zap },
-  { id: 'neighbor', name: 'The Neighbor', desc: 'Casual, community, conversational', color: '#D4634A', icon: Users },
-  { id: 'analyst', name: 'The Analyst', desc: 'Calm, measured, Bloomberg tone', color: '#2D8A6E', icon: TrendingUp },
+  { id: 'anchor', name: 'The Anchor', desc: 'Warm, authoritative, NPR-adjacent', color: '#4A90D9', icon: Radio, tts: { exaggeration: 0.15, cfg_weight: 0.7 } },
+  { id: 'correspondent', name: 'The Correspondent', desc: 'Crisp, energetic, faster pace', color: '#F4A261', icon: Zap, tts: { exaggeration: 0.5, cfg_weight: 0.3 } },
+  { id: 'neighbor', name: 'The Neighbor', desc: 'Casual, community, conversational', color: '#D4634A', icon: Users, tts: { exaggeration: 0.4, cfg_weight: 0.5 } },
+  { id: 'analyst', name: 'The Analyst', desc: 'Calm, measured, Bloomberg tone', color: '#2D8A6E', icon: TrendingUp, tts: { exaggeration: 0.1, cfg_weight: 0.8 } },
+  { id: 'host', name: 'The Host', desc: 'Bright, engaging, talk-show energy', color: '#9B59B6', icon: Mic, tts: { exaggeration: 0.6, cfg_weight: 0.4 } },
 ]
 
 export const ALL_VOICES: VoiceDefinition[] = [...BASE_VOICES]

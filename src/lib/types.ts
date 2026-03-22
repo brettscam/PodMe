@@ -25,12 +25,18 @@ export interface TopicDefinition {
   subs: string[]
 }
 
+export interface VoiceTTSParams {
+  exaggeration: number
+  cfg_weight: number
+}
+
 export interface VoiceDefinition {
   id: string
   name: string
   desc: string
   color: string
   icon: LucideIcon
+  tts: VoiceTTSParams
 }
 
 export interface UserProfile {
