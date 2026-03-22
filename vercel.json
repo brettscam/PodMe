@@ -18,6 +18,9 @@
     "api/debug-imports.ts": {
       "maxDuration": 30
     },
+    "api/health.ts": {
+      "maxDuration": 30
+    },
     "api/cron/send-digests.ts": {
       "maxDuration": 120
     },

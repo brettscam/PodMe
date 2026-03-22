@@ -270,13 +270,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     topics = topicsParam
   }
 
-  if (!anthropicApiKey) {
-    return res.status(503).json({
-      error: 'ANTHROPIC_API_KEY not configured.',
-      hint: 'Set ANTHROPIC_API_KEY in your Vercel environment variables.',
-    })
-  }
-
   // Sort: pinned first, then by weight, then sort_order
   const weightOrder: Record<string, number> = { featured: 0, standard: 1, brief: 2 }
   const sorted = [...topics].sort((a, b) => {

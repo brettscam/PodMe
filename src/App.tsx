@@ -33,7 +33,7 @@ export default function App() {
   const userId = user?.id ?? null
   const { profile, setTone, setLength, setCadence, setDefaultVoice, setDeliveryTime, setDiscoveryEnabled, setEmailDigest } = useProfile(userId)
   const { topics, addTopic, removeTopic, setWeight, togglePin, addCustomTag, removeCustomTag } = useTopics(userId)
-  const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
+  const { currentEpisode, pastEpisodes, loading: episodeLoading, error: episodeError, buildProgress, refresh: refreshEpisode } = useEpisodeBuilder(topics, profile.tone, profile.length, profile.default_voice, user?.id)
   const { shareToken, copied, listenCount, generateShareLink, getShareUrl, copyShareLink, nativeShare } = useShare()
   const { progress: genProgress, generateEpisode, loadCachedAudio, reset: resetGeneration } = useGenerate()
   const cacheLoadAttemptedRef = useRef(false)
@@ -106,6 +106,7 @@ export default function App() {
             onPreviewEmail={() => setShowEmailPreview(true)}
             episodeLoading={episodeLoading}
             episodeError={episodeError}
+            buildSteps={buildProgress.steps}
             onGenerate={() => currentEpisode ? generateEpisode(currentEpisode.segments) : refreshEpisode()}
             onRegenerate={handleRegenerate}
           />
@@ -155,6 +156,7 @@ export default function App() {
             onRegenerate={handleRegenerate}
             episodeLoading={episodeLoading}
             episodeError={episodeError}
+            buildSteps={buildProgress.steps}
           />
         )
       case 'profile':
