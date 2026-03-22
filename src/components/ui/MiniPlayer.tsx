@@ -27,13 +27,21 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
   const hasGeneratedAudio = generatedAudioUrls && generatedAudioUrls.length > 0
   const audioSrc = hasGeneratedAudio ? generatedAudioUrls[currentTrack] : undefined
 
-  // Track total duration across all segments
-  const totalDuration = trackDurations.reduce((sum, d) => sum + d, 0)
-  const elapsedBefore = trackDurations.slice(0, currentTrack).reduce((sum, d) => sum + d, 0)
+  // Use episode segment durations as the estimated total (always available),
+  // and swap in real audio durations as they become known
+  const estimatedSegmentDurations = episode.segments.map(s => s.duration_seconds)
+  const estimatedTotal = estimatedSegmentDurations.reduce((sum, d) => sum + d, 0)
+
+  // Build effective durations: use real audio duration if known, otherwise estimated
+  const effectiveDurations = hasGeneratedAudio
+    ? generatedAudioUrls.map((_, i) => trackDurations[i] || estimatedSegmentDurations[i] || 0)
+    : estimatedSegmentDurations
+
+  const totalDuration = effectiveDurations.reduce((sum, d) => sum + d, 0) || estimatedTotal
+  const elapsedBefore = effectiveDurations.slice(0, currentTrack).reduce((sum, d) => sum + d, 0)
   const globalTime = elapsedBefore + currentTime
-  const globalProgress = totalDuration > 0 ? (globalTime / totalDuration) * 100 : 0
-  const singleTrackProgress = duration > 0 ? (currentTime / duration) * 100 : 0
-  const displayProgress = hasGeneratedAudio ? globalProgress : singleTrackProgress
+  const globalProgress = totalDuration > 0 ? Math.min((globalTime / totalDuration) * 100, 100) : 0
+  const displayProgress = hasGeneratedAudio ? globalProgress : (duration > 0 ? (currentTime / duration) * 100 : 0)
 
   // Map active segment from current track index
   useEffect(() => {
@@ -64,6 +72,7 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
   // Store track duration when metadata loads
   const handleMetadata = useCallback((e: React.SyntheticEvent<HTMLAudioElement>) => {
     const dur = (e.target as HTMLAudioElement).duration
+    if (!isFinite(dur) || dur <= 0) return
     setDuration(dur)
     if (hasGeneratedAudio) {
       setTrackDurations(prev => {
@@ -88,7 +97,6 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
     if (!audioRef.current) return
     const newTime = audioRef.current.currentTime + seconds
     if (hasGeneratedAudio && generatedAudioUrls) {
-      // Handle cross-track skipping
       if (newTime < 0 && currentTrack > 0) {
         setCurrentTrack(prev => prev - 1)
         setTimeout(() => {
@@ -157,11 +165,7 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
   const activeSegment = episode.segments[activeSegmentIdx]
   const voice = activeSegment ? getVoice(activeSegment.voice) : null
   const displayTime = hasGeneratedAudio ? globalTime : currentTime
-  const displayTotal = hasGeneratedAudio && totalDuration > 0
-    ? totalDuration
-    : duration > 0
-      ? duration
-      : episode.estimated_minutes * 60
+  const displayTotal = totalDuration > 0 ? totalDuration : episode.estimated_minutes * 60
 
   return (
     <div
@@ -232,27 +236,49 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
         </div>
       )}
 
-      {/* Segment dots timeline */}
+      {/* Segment progress indicators — proportional widths */}
       {hasGeneratedAudio && (
         <div className="px-5 pb-1">
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             {episode.segments.map((seg, i) => {
               const v = getVoice(seg.voice)
+              const segDur = effectiveDurations[i] || 1
+              const segWidth = (segDur / totalDuration) * 100
+
+              // Calculate how filled this segment is
+              let fillPercent = 0
+              if (i < currentTrack) {
+                fillPercent = 100
+              } else if (i === currentTrack && duration > 0) {
+                fillPercent = Math.min((currentTime / duration) * 100, 100)
+              }
+
               return (
                 <div
                   key={i}
-                  className="h-1 rounded-full flex-1 transition-all"
+                  className="h-1.5 rounded-full overflow-hidden"
                   style={{
-                    backgroundColor: i <= activeSegmentIdx ? v.color : `${v.color}30`,
+                    width: `${segWidth}%`,
+                    backgroundColor: `${v.color}25`,
+                    minWidth: 4,
                   }}
-                />
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${fillPercent}%`,
+                      backgroundColor: v.color,
+                      transition: isScrubbing ? 'none' : 'width 0.3s linear',
+                    }}
+                  />
+                </div>
               )
             })}
           </div>
         </div>
       )}
 
-      {/* Progress Bar — tall touch target with visual scrub handle */}
+      {/* Main Progress Bar — shows global progress across all segments */}
       <div className="px-5 pt-1">
         <div
           ref={progressRef}
@@ -276,9 +302,9 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
             <div
               className="h-full rounded-full relative"
               style={{
-                width: `${displayProgress}%`,
+                width: `${Math.min(displayProgress, 100)}%`,
                 background: 'linear-gradient(90deg, var(--accent-pulse), var(--accent-signal))',
-                transition: isScrubbing ? 'none' : 'width 0.1s linear',
+                transition: isScrubbing ? 'none' : 'width 0.3s linear',
               }}
             >
               {/* Scrub handle */}
@@ -343,7 +369,7 @@ export default function MiniPlayer({ episode, generatedAudioUrls, generationStat
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeDasharray={`${2 * Math.PI * 26}`}
-                  strokeDashoffset={`${2 * Math.PI * 26 * (1 - displayProgress / 100)}`}
+                  strokeDashoffset={`${2 * Math.PI * 26 * (1 - Math.min(displayProgress, 100) / 100)}`}
                   style={{ transition: 'stroke-dashoffset 0.3s linear' }}
                 />
               </svg>

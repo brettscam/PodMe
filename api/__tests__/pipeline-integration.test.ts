@@ -244,7 +244,7 @@ describe('Full Pipeline Integration', { timeout: 30000 }, () => {
       expect(seg.script).toBeTruthy()
       expect((seg.script as string).length).toBeGreaterThan(20)
       expect(seg.duration_seconds).toBeGreaterThan(0)
-      expect(seg.voice).toBe('anchor')
+      expect(seg.voice).toBeTruthy()
     }
 
     // Show notes must exist

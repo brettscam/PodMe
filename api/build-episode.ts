@@ -13,29 +13,41 @@ function getSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey)
 }
 
-// Duration targets by length preference (word counts)
+// Per-SEGMENT word targets (each topic gets this many words)
 const WORD_TARGETS: Record<string, number> = {
-  quick: 225,    // ~90 seconds
-  standard: 450, // ~3 minutes
-  deep: 750,     // ~5 minutes
+  quick: 400,     // ~2.5 min per segment
+  standard: 700,  // ~4.5 min per segment
+  deep: 1100,     // ~7 min per segment
 }
 
 const WEIGHT_MULTIPLIERS: Record<string, number> = {
-  featured: 1.2,
+  featured: 1.3,
   standard: 1.0,
   brief: 0.5,
 }
 
-const DEFAULT_VOICE = 'anchor'
+// Voice variety — each topic gets a different voice for a podcast feel
+const TOPIC_VOICES: Record<string, string> = {
+  earnings: 'analyst',
+  tech: 'correspondent',
+  world: 'anchor',
+  local: 'neighbor',
+  business: 'analyst',
+  science: 'anchor',
+  creative: 'correspondent',
+  sports: 'correspondent',
+  travel: 'neighbor',
+  entertainment: 'correspondent',
+}
 
-// --- Core pipeline: RSS articles → script → polish → episode ---
+// --- Core pipeline: RSS articles → script → episode ---
 
 function hashArticles(topicId: string, date: string, articles: RssArticle[]): string {
   const input = topicId + date + articles.map(a => a.title + a.url).join('|')
   return createHash('sha256').update(input).digest('hex')
 }
 
-async function callClaude(prompt: string, maxTokens = 1024): Promise<string> {
+async function callClaude(prompt: string, maxTokens = 2048): Promise<string> {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -44,7 +56,7 @@ async function callClaude(prompt: string, maxTokens = 1024): Promise<string> {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-5-20250514',
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -59,7 +71,7 @@ async function callClaude(prompt: string, maxTokens = 1024): Promise<string> {
   return data.content?.[0]?.text || ''
 }
 
-// Optional web search enrichment — adds extra context on top of RSS
+// Web search for supplemental context
 async function searchForContext(topicLabel: string, subs: string[], customTags: string[]): Promise<string | null> {
   const tagsFocus = customTags.length > 0
     ? ` Focus especially on: ${customTags.join(', ')}.`
@@ -67,7 +79,7 @@ async function searchForContext(topicLabel: string, subs: string[], customTags: 
 
   const prompt = `Search for the latest news about "${topicLabel}" (subtopics: ${subs.join(', ')}).${tagsFocus}
 
-Provide a brief summary of the most important developments you find. Include specific facts, figures, and source names. Keep it to 3-5 bullet points.`
+Provide a brief summary of the most important developments. Include specific facts, figures, and source names. Keep it to 3-5 bullet points.`
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -97,12 +109,12 @@ Provide a brief summary of the most important developments you find. Include spe
 
 function formatArticlesForPrompt(articles: RssArticle[], customTags: string[]): string {
   const lines = articles.map((a, i) =>
-    `${i + 1}. [${a.outlet}] "${a.title}"${a.description ? `\n   ${a.description.substring(0, 300)}` : ''}`
+    `${i + 1}. [${a.outlet}] "${a.title}"${a.description ? `\n   ${a.description.substring(0, 400)}` : ''}\n   URL: ${a.url}`
   )
 
-  let text = lines.join('\n')
+  let text = lines.join('\n\n')
   if (customTags.length > 0) {
-    text += `\n\nUser is especially interested in: ${customTags.join(', ')}`
+    text += `\n\nThe listener is especially interested in: ${customTags.join(', ')}. Prioritize coverage of these topics.`
   }
   return text
 }
@@ -114,101 +126,116 @@ async function writeSegmentScript(
   tone: string,
   wordTarget: number,
   webContext: string | null,
+  segmentPosition: { index: number; total: number },
+  prevTopicLabel: string | null,
 ): Promise<{ script: string; duration: number }> {
   const toneGuide: Record<string, string> = {
-    factual: 'dry reporting style, just the facts, no opinion',
-    mixed: 'reporting with light commentary, conversational but informative',
-    commentary: 'opinionated analysis, strong voice, engaging perspective',
+    factual: 'Authoritative but accessible. Think NPR — facts-first with clarity, no fluff, but never dry or robotic. Use precise language.',
+    mixed: 'The sweet spot between informed and fun. Like your smartest friend explaining the news over coffee. Light humor is welcome. Be curious, not performative.',
+    commentary: 'Strong editorial voice. Like a great opinion columnist who does their homework. Take positions, make predictions, connect dots others miss. Be bold but fair.',
   }
 
   const webSection = webContext
-    ? `\n\nAdditional context from web search:\n${webContext}`
+    ? `\n\nAdditional context from web search (use to add depth, not replace the articles):\n${webContext}`
     : ''
 
-  const prompt = `Write a podcast segment about ${topicLabel} based on these news articles:
+  const transitionNote = segmentPosition.index === 0
+    ? 'This is the FIRST topic after the cold open. Start with energy — no need for a transition.'
+    : prevTopicLabel
+      ? `This follows a segment about ${prevTopicLabel}. Write a BRIEF, natural transition (one sentence max) that bridges from that topic to this one before diving in. Make it feel conversational, not formulaic.`
+      : ''
+
+  const prompt = `You are a brilliant podcast scriptwriter. Write a segment about "${topicLabel}" for a daily news podcast.
+
+SOURCE MATERIAL (${articles.length} articles):
 
 ${formatArticlesForPrompt(articles, customTags)}${webSection}
 
-Rules:
+WRITING GUIDELINES:
 - Tone: ${toneGuide[tone] || toneGuide.mixed}
-- Target length: ~${wordTarget} words
-- Write for spoken delivery. Use spoken numbers ("five hundred" not "500").
-- Reference sources by outlet name naturally (e.g., "according to Reuters" or "the BBC reports").
-- No segment headers, no stage directions, no intro/outro — just the content.
-- Synthesize the articles into a cohesive segment. Don't just list them.
-- The news articles are your primary source. The web context is supplemental — use it to add depth, not replace the articles.
+- Target length: ${wordTarget} words (this is important — write enough to properly cover the stories)
+- Write for the EAR, not the eye. Short sentences. Conversational rhythm. Varied pace.
+- Use spoken numbers: "five hundred" not "500", "twenty twenty-six" not "2026"
+- Reference sources naturally: "according to Reuters" or "as the BBC reports" — never "Article 1 says"
+- SYNTHESIZE. Don't just list articles one by one. Find the thread that connects them. Tell a story.
+- Cover ALL the major stories in your source material. Don't just pick one and ignore the rest.
+- Include specific facts, numbers, names. Specificity makes audio compelling.
+- Vary your sentence length. Mix short punchy lines with longer explanatory ones.
+- Add natural pauses: use "..." for beats, em dashes for asides.
+- NO segment headers, NO "let's talk about", NO "moving on to" — just flow naturally.
+- NO sign-offs like "that's it for" or "stay tuned" — the next segment handles transitions.
+${transitionNote ? `\n${transitionNote}` : ''}
 
-Return ONLY the script text.`
+IMPORTANT: You have ${articles.length} articles to work with. Use them! Cover the breadth of what's happening, not just one story. The listener subscribed to "${topicLabel}" because they want COMPREHENSIVE coverage.
 
-  const script = await callClaude(prompt)
+Return ONLY the script text. No headers, no stage directions, no meta-commentary.`
+
+  const script = await callClaude(prompt, 3000)
   const wordCount = script.split(/\s+/).length
-  const duration = Math.round(wordCount / 2.5) // ~2.5 words/sec for natural speech
+  const duration = Math.round(wordCount / 2.5) // ~2.5 words/sec
 
   return { script, duration }
 }
 
-interface PolishResult {
-  cold_open: string
-  transitions: string[]
-  wrap_up: string
-}
-
-async function polishEpisode(
-  segments: { title: string; script: string }[],
+async function writeColdOpen(
+  segments: { title: string; topicLabel: string; articleCount: number }[],
   tone: string,
   isWeekend: boolean,
-): Promise<PolishResult | null> {
+): Promise<string> {
   const showType = isWeekend ? 'weekend digest' : 'morning brief'
-
   const toneGuide: Record<string, string> = {
-    factual: 'Professional and authoritative. No jokes, no filler.',
-    mixed: 'Warm and conversational. Light personality, but informative.',
-    commentary: 'Engaging and opinionated. Strong voice, like a favorite columnist.',
+    factual: 'Professional, authoritative. Think NPR opening.',
+    mixed: 'Warm and energetic. Like greeting a friend with exciting news.',
+    commentary: 'Bold and engaging. Hook them with your most provocative take.',
   }
 
-  const segmentSummaries = segments
-    .map((s, i) => `[Segment ${i + 1}: ${s.title}]\n${s.script}`)
-    .join('\n\n---\n\n')
+  const topics = segments.map(s => `${s.topicLabel} (${s.articleCount} stories)`).join(', ')
 
-  const prompt = `You are the show producer for a daily podcast "${showType}".
-Below are the raw topic scripts in order. Write:
+  const prompt = `Write a cold open for a daily podcast (${showType}). Today's lineup: ${topics}.
 
-1. A cold open (2-3 sentences) teasing the top stories to hook the listener.
-2. A transition line BEFORE each topic (1-2 sentences bridging from previous).
-3. A warm wrap-up (2-3 sentences).
+Guidelines:
+- 3-4 sentences that HOOK the listener. Tease the most interesting stories.
+- Tone: ${toneGuide[tone] || toneGuide.mixed}
+- Write for spoken delivery. Conversational, energetic, specific.
+- Don't say "Good morning" or "Welcome to" — just launch right in.
+- End with something that creates anticipation.
 
-Tone: ${toneGuide[tone] || toneGuide.mixed}
-Day: ${isWeekend ? 'Weekend' : 'Weekday'}
-
-${segmentSummaries}
-
-Return ONLY JSON (no markdown, no code fences):
-{
-  "cold_open": "...",
-  "transitions": ["before segment 1", "before segment 2", ...],
-  "wrap_up": "..."
-}
-
-The transitions array must have exactly ${segments.length} entries.
-Write for spoken delivery.`
+Return ONLY the script text.`
 
   try {
-    const rawText = await callClaude(prompt)
+    return await callClaude(prompt, 500)
+  } catch {
+    return `Big stories today across ${segments.length} topics. Let's get into it.`
+  }
+}
 
-    let parsed: PolishResult
-    try {
-      parsed = JSON.parse(rawText)
-    } catch {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) return null
-      parsed = JSON.parse(jsonMatch[0])
-    }
+async function writeWrapUp(
+  segments: { title: string; topicLabel: string }[],
+  tone: string,
+  isWeekend: boolean,
+): Promise<string> {
+  const toneGuide: Record<string, string> = {
+    factual: 'Brief, professional sign-off.',
+    mixed: 'Warm, conversational goodbye.',
+    commentary: 'Leave them with one final thought to chew on.',
+  }
 
-    if (!parsed.cold_open || !Array.isArray(parsed.transitions) || !parsed.wrap_up) return null
-    return parsed
-  } catch (err) {
-    console.error('Polish pass failed:', err)
-    return null
+  const prompt = `Write a wrap-up for a daily podcast. We covered: ${segments.map(s => s.topicLabel).join(', ')}.
+
+Guidelines:
+- 2-3 sentences. Quick, satisfying ending.
+- Tone: ${toneGuide[tone] || toneGuide.mixed}
+- ${isWeekend ? 'Wish them a good weekend.' : 'Set up anticipation for tomorrow.'}
+- Don't just list what we covered. Leave them with something memorable.
+
+Return ONLY the script text.`
+
+  try {
+    return await callClaude(prompt, 300)
+  } catch {
+    return isWeekend
+      ? `That's your weekend digest. Enjoy the time off — we'll be back Monday.`
+      : `That's your briefing for today. See you tomorrow morning.`
   }
 }
 
@@ -246,7 +273,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const forceRefresh = params.force_refresh === true || params.force_refresh === 'true'
   const userId = params.user_id as string | undefined
   const topicsParam = params.topics as string | TopicParam[] | undefined
-  const defaultVoice = (params.default_voice as string) || DEFAULT_VOICE
+  const defaultVoice = (params.default_voice as string) || 'anchor'
   const dateOverride = params.date as string | undefined
 
   if (!anthropicApiKey) {
@@ -284,11 +311,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? dateOverride
       : new Date().toISOString().split('T')[0]
 
-    // --- Step 1: Fetch RSS for all topics in parallel ---
+    // --- Step 1: Fetch RSS for all topics in parallel, passing custom tags ---
     const rssResults = await Promise.allSettled(
       sorted.map(async (ut) => {
         const topicId = ut.topic_id
-        if (!TOPIC_META[topicId]) return { topicId, rss: null }
+        if (!TOPIC_META[topicId]) return { topicId, rss: null, customTags: ut.custom_tags || [] }
 
         // Check Supabase cache first (if available)
         if (supabase && !forceRefresh) {
@@ -300,29 +327,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .single()
 
           if (cached && cached.claims?.length > 0) {
-            return { topicId, cached }
+            return { topicId, cached, customTags: ut.custom_tags || [] }
           }
         }
 
-        const rss = await fetchRssForTopic(topicId)
-        return { topicId, rss }
+        // Pass custom tags to RSS fetcher for dynamic feed discovery
+        const rss = await fetchRssForTopic(topicId, ut.custom_tags || [])
+        return { topicId, rss, customTags: ut.custom_tags || [] }
       })
     )
 
     // Collect RSS articles per topic
-    const topicArticles = new Map<string, { articles: RssArticle[]; fromCache: boolean; cachedData?: Record<string, unknown> }>()
+    const topicArticles = new Map<string, { articles: RssArticle[]; fromCache: boolean; cachedData?: Record<string, unknown>; customTags: string[] }>()
     const fetchErrors: string[] = []
 
     for (const result of rssResults) {
       if (result.status !== 'fulfilled') continue
-      const { topicId, rss, cached } = result.value as { topicId: string; rss?: FetchedRssContent | null; cached?: Record<string, unknown> }
+      const { topicId, rss, cached, customTags: tags } = result.value as {
+        topicId: string; rss?: FetchedRssContent | null; cached?: Record<string, unknown>; customTags: string[]
+      }
 
       if (cached) {
-        topicArticles.set(topicId, { articles: [], fromCache: true, cachedData: cached })
+        topicArticles.set(topicId, { articles: [], fromCache: true, cachedData: cached, customTags: tags })
       } else if (rss && rss.articles.length > 0) {
-        topicArticles.set(topicId, { articles: rss.articles, fromCache: false })
+        topicArticles.set(topicId, { articles: rss.articles, fromCache: false, customTags: tags })
 
-        // Cache the RSS content in Supabase for later
+        // Cache the RSS content
         if (supabase) {
           const claims = rss.articles.map(a => a.description ? `${a.title}: ${a.description.substring(0, 200)}` : a.title)
           const sources = rss.articles.map(a => ({
@@ -360,35 +390,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
 
-    // --- Step 2: Kick off web search enrichment in parallel (best-effort) ---
+    // --- Step 2: Kick off web search enrichment in parallel ---
     const webContextMap = new Map<string, Promise<string | null>>()
     for (const ut of sorted) {
       if (!topicArticles.has(ut.topic_id)) continue
       const meta = TOPIC_META[ut.topic_id]
       if (!meta) continue
-      // Fire and forget — we'll await these when generating scripts
       webContextMap.set(
         ut.topic_id,
         searchForContext(meta.label, meta.subs, ut.custom_tags || []).catch(() => null),
       )
     }
 
-    // --- Step 3: Generate scripts from RSS articles + web context ---
+    // --- Step 3: Generate scripts with voice variety and better prompts ---
     const topicSegments: SegmentResult[] = []
     let elapsed = 0
     let scriptErrors = 0
 
-    for (const ut of sorted) {
-      const entry = topicArticles.get(ut.topic_id)
-      if (!entry) continue
+    const topicsWithContent = sorted.filter(ut => topicArticles.has(ut.topic_id) && TOPIC_META[ut.topic_id])
 
-      const meta = TOPIC_META[ut.topic_id]
-      if (!meta) continue
+    for (let ti = 0; ti < topicsWithContent.length; ti++) {
+      const ut = topicsWithContent[ti]
+      const entry = topicArticles.get(ut.topic_id)!
+      const meta = TOPIC_META[ut.topic_id]!
 
-      const baseWords = WORD_TARGETS[length] || 450
+      const baseWords = WORD_TARGETS[length] || 700
       const wordTarget = Math.round(baseWords * (WEIGHT_MULTIPLIERS[ut.weight] || 1))
 
-      // Check script cache if we have cached content
+      // Check script cache
       if (entry.fromCache && entry.cachedData && supabase) {
         const cached = entry.cachedData
         const contentHash = (cached.content_hash as string) || ''
@@ -402,11 +431,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           .single()
 
         if (scriptCache) {
+          // Assign varied voice even from cache
+          const voice = ut.voice_override || TOPIC_VOICES[ut.topic_id] || defaultVoice
           topicSegments.push({
             topic_id: ut.topic_id,
             segment_type: 'topic',
             title: (cached.title as string) || meta.label,
-            voice: defaultVoice,
+            voice,
             start_time_seconds: elapsed,
             duration_seconds: scriptCache.duration_seconds,
             script: scriptCache.script,
@@ -418,7 +449,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // Build articles list (from RSS or from cached claims)
+      // Build articles list
       let articles = entry.articles
       if (entry.fromCache && entry.cachedData && articles.length === 0) {
         const claims = (entry.cachedData.claims as string[]) || []
@@ -435,11 +466,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (articles.length === 0) continue
 
       try {
-        // Await web search context (already running in parallel)
         const webContext = await (webContextMap.get(ut.topic_id) || Promise.resolve(null))
+        const prevTopicLabel = ti > 0 ? TOPIC_META[topicsWithContent[ti - 1].topic_id]?.label || null : null
 
         const { script, duration } = await writeSegmentScript(
           meta.label, articles, ut.custom_tags || [], tone, wordTarget, webContext,
+          { index: ti, total: topicsWithContent.length },
+          prevTopicLabel,
         )
 
         // Cache the script
@@ -451,7 +484,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (contentHash) {
             supabase.from('generated_scripts').insert({
               content_hash: contentHash, tone, length, script,
-              duration_seconds: duration, model_used: 'claude-haiku-4-5-20251001',
+              duration_seconds: duration, model_used: 'claude-sonnet-4-5-20250514',
             }).then(() => {}).catch(e => console.error('Script cache failed:', e))
           }
         }
@@ -466,11 +499,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           cited_claims: [a.title],
         }))
 
+        // Voice variety: each topic gets a different voice
+        const voice = ut.voice_override || TOPIC_VOICES[ut.topic_id] || defaultVoice
+
         topicSegments.push({
           topic_id: ut.topic_id,
           segment_type: 'topic',
-          title: entry.articles[0]?.title || meta.label,
-          voice: defaultVoice,
+          title: meta.label,
+          voice,
           start_time_seconds: elapsed,
           duration_seconds: duration,
           script,
@@ -491,33 +527,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
     }
 
-    // --- Step 3: Polish — cold open, transitions, wrap-up ---
+    // --- Step 4: Cold open and wrap-up (separate from topic scripts) ---
     const now = dateOverride ? new Date(dateOverride + 'T12:00:00Z') : new Date()
     const isWeekend = now.getDay() === 0 || now.getDay() === 6
-    const showType = isWeekend ? 'weekend digest' : 'morning brief'
 
-    const polished = await polishEpisode(
-      topicSegments.map(s => ({ title: s.title, script: s.script })),
-      tone,
-      isWeekend,
-    )
-
-    // Inject transitions into scripts
-    if (polished?.transitions) {
-      for (let i = 0; i < topicSegments.length; i++) {
-        const transition = polished.transitions[i]
-        if (transition) {
-          topicSegments[i].script = transition + '\n\n' + topicSegments[i].script
-          const wordCount = topicSegments[i].script.split(/\s+/).length
-          topicSegments[i].duration_seconds = Math.round(wordCount / 2.5)
-        }
-      }
-    }
-
-    const coldOpenScript = polished?.cold_open
-      || `Good morning, welcome to your ${showType}. We've got ${topicSegments.length} stories for you today. Let's get into it.`
-    const wrapUpScript = polished?.wrap_up
-      || `That's your ${showType}. See you ${isWeekend ? 'Monday morning' : 'tomorrow'}. Have a great ${isWeekend ? 'weekend' : 'day'}.`
+    const [coldOpenScript, wrapUpScript] = await Promise.all([
+      writeColdOpen(
+        topicSegments.map(s => ({
+          title: s.title,
+          topicLabel: TOPIC_META[s.topic_id || '']?.label || s.title,
+          articleCount: s.sources.length,
+        })),
+        tone, isWeekend,
+      ),
+      writeWrapUp(
+        topicSegments.map(s => ({
+          title: s.title,
+          topicLabel: TOPIC_META[s.topic_id || '']?.label || s.title,
+        })),
+        tone, isWeekend,
+      ),
+    ])
 
     const coldOpenDuration = Math.round(coldOpenScript.split(/\s+/).length / 2.5)
     const wrapUpDuration = Math.round(wrapUpScript.split(/\s+/).length / 2.5)
@@ -531,13 +561,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const coldOpen: SegmentResult = {
       topic_id: null, segment_type: 'cold_open', title: 'Cold Open',
-      voice: defaultVoice, start_time_seconds: 0, duration_seconds: coldOpenDuration,
+      voice: 'anchor', start_time_seconds: 0, duration_seconds: coldOpenDuration,
       script: coldOpenScript, sources: [], sort_order: 0,
     }
 
     const wrapUp: SegmentResult = {
-      topic_id: null, segment_type: 'wrap_up', title: 'Wrap & Look-Ahead',
-      voice: defaultVoice, start_time_seconds: runningTime, duration_seconds: wrapUpDuration,
+      topic_id: null, segment_type: 'wrap_up', title: 'Wrap Up',
+      voice: 'anchor', start_time_seconds: runningTime, duration_seconds: wrapUpDuration,
       script: wrapUpScript, sources: [], sort_order: topicSegments.length + 1,
     }
 
@@ -547,7 +577,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
     const episodeTitle = `${dateStr} — ${isWeekend ? 'Weekend Digest' : 'Morning Brief'}`
 
-    // Compute real source summary from actual articles
     const allSources = topicSegments.flatMap(s => s.sources)
     const uniqueOutlets = new Set(allSources.map(s => s.outlet))
 
