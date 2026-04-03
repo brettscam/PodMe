@@ -1,233 +1,118 @@
-import { useState, useCallback, useEffect } from 'react'
-import type { UserTopic, Weight } from '../lib/types'
-import { DEFAULT_USER_TOPICS } from '../lib/constants'
-import { supabase } from '../lib/supabase'
+import { useState, useEffect, useCallback } from 'react'
+import type { Session } from '@supabase/supabase-js'
+import type { Topic, UserTopic } from '../lib/types'
 
-export function useTopics(userId: string | undefined | null) {
-  const [topics, setTopics] = useState<UserTopic[]>([])
-  const [loaded, setLoaded] = useState(false)
+function authHeaders(session: Session) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+  }
+}
 
-  // Load topics from Supabase
+export function useTopics(session: Session | null) {
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [userTopics, setUserTopics] = useState<UserTopic[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchTopics = useCallback(async () => {
+    if (!session) return
+    setLoading(true)
+    setError(null)
+    try {
+      const [topicsRes, userTopicsRes] = await Promise.all([
+        fetch('/api/topics', { headers: authHeaders(session) }),
+        fetch('/api/user-topics', { headers: authHeaders(session) }),
+      ])
+      if (!topicsRes.ok) throw new Error('Failed to fetch topics')
+      if (!userTopicsRes.ok) throw new Error('Failed to fetch user topics')
+      const topicsData = await topicsRes.json()
+      const userTopicsData = await userTopicsRes.json()
+      setTopics(topicsData)
+      setUserTopics(userTopicsData)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
+  }, [session])
+
   useEffect(() => {
-    if (!userId) return
-    let cancelled = false
+    fetchTopics()
+  }, [fetchTopics])
 
-    async function load() {
-      const { data, error } = await supabase
-        .from('user_topics')
-        .select('*')
-        .eq('user_id', userId)
-        .order('sort_order')
-
-      if (cancelled) return
-
-      if (error) {
-        console.error('Failed to load topics:', error.message, error.details)
-      }
-
-      if (data && !error && data.length > 0) {
-        setTopics(data.map(t => ({
-          id: t.id,
-          user_id: t.user_id,
-          topic_id: t.topic_id,
-          weight: t.weight || 'standard',
-          pinned: t.pinned || false,
-          voice_override: t.voice_override || null,
-          sort_order: t.sort_order || 0,
-          custom_tags: t.custom_tags || [],
-        })))
-      } else if (!error) {
-        // New user — seed with defaults
-        const seeded: UserTopic[] = DEFAULT_USER_TOPICS.map(t => ({
-          ...t,
-          id: crypto.randomUUID(),
-          user_id: userId!,
-        }))
-        setTopics(seeded)
-
-        // Insert defaults into Supabase
-        const { error: seedError } = await supabase.from('user_topics').insert(
-          seeded.map(t => ({
-            id: t.id,
-            user_id: t.user_id,
-            topic_id: t.topic_id,
-            weight: t.weight,
-            pinned: t.pinned,
-            voice_override: t.voice_override,
-            sort_order: t.sort_order,
-            custom_tags: t.custom_tags,
-          }))
-        )
-        if (seedError) {
-          console.error('Failed to seed topics:', seedError.message, seedError.details)
+  const toggleTopic = useCallback(
+    async (topicId: string, enabled: boolean) => {
+      setUserTopics((prev) => {
+        const existing = prev.find((ut) => ut.topic_id === topicId)
+        if (existing) {
+          return prev.map((ut) =>
+            ut.topic_id === topicId ? { ...ut, enabled } : ut
+          )
         }
-      }
-      setLoaded(true)
-    }
+        return [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            user_id: '',
+            topic_id: topicId,
+            enabled,
+            custom_tags: [],
+            sort_order: prev.length,
+          },
+        ]
+      })
+    },
+    []
+  )
 
-    load()
-    return () => { cancelled = true }
-  }, [userId])
-
-  const addTopic = useCallback(async (topicId: string) => {
-    if (!userId) return
-
-    // Check constraints before modifying state
-    const current = topics
-    if (current.length >= 12) return
-    if (current.some(t => t.topic_id === topicId)) return
-
-    const newTopic: UserTopic = {
-      id: crypto.randomUUID(),
-      user_id: userId,
-      topic_id: topicId,
-      weight: 'standard',
-      pinned: false,
-      voice_override: null,
-      sort_order: current.length,
-      custom_tags: [],
-    }
-
-    // Optimistic update
-    setTopics(prev => [...prev, newTopic])
-
-    // Persist to Supabase
-    const { error } = await supabase.from('user_topics').insert({
-      id: newTopic.id,
-      user_id: userId,
-      topic_id: topicId,
-      weight: 'standard',
-      pinned: false,
-      voice_override: null,
-      sort_order: current.length,
-      custom_tags: [],
-    })
-    if (error) {
-      console.error('Failed to insert topic:', error.message, error.details)
-      // Rollback on failure
-      setTopics(prev => prev.filter(t => t.id !== newTopic.id))
-    }
-  }, [userId, topics])
-
-  const removeTopic = useCallback(async (topicId: string) => {
-    const removed = topics.find(t => t.topic_id === topicId)
-    setTopics(prev => prev.filter(t => t.topic_id !== topicId))
-
-    if (userId) {
-      const { error } = await supabase.from('user_topics').delete().eq('user_id', userId).eq('topic_id', topicId)
-      if (error) {
-        console.error('Failed to remove topic:', error.message)
-        // Rollback
-        if (removed) setTopics(prev => [...prev, removed])
-      }
-    }
-  }, [userId, topics])
-
-  const updateTopic = useCallback(async (topicId: string, updates: Partial<UserTopic>) => {
-    const original = topics.find(t => t.topic_id === topicId)
-    setTopics(prev => prev.map(t =>
-      t.topic_id === topicId ? { ...t, ...updates } : t
-    ))
-    if (userId) {
-      const dbUpdates: Record<string, unknown> = { ...updates }
-      delete dbUpdates.id
-      delete dbUpdates.user_id
-      const { error } = await supabase.from('user_topics').update(dbUpdates).eq('user_id', userId).eq('topic_id', topicId)
-      if (error) {
-        console.error('Failed to update topic:', error.message)
-        // Rollback
-        if (original) setTopics(prev => prev.map(t => t.topic_id === topicId ? original : t))
-      }
-    }
-  }, [userId, topics])
-
-  const setWeight = useCallback((topicId: string, weight: Weight) => {
-    updateTopic(topicId, { weight })
-  }, [updateTopic])
-
-  const togglePin = useCallback(async (topicId: string) => {
-    const topic = topics.find(t => t.topic_id === topicId)
-    if (!topic) return
-    const newPinned = !topic.pinned
-
-    // Optimistic update
-    setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, pinned: newPinned } : t))
-
-    if (userId) {
-      const { error } = await supabase.from('user_topics').update({ pinned: newPinned }).eq('user_id', userId).eq('topic_id', topicId)
-      if (error) {
-        console.error('Failed to toggle pin:', error.message)
-        // Rollback
-        setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, pinned: !newPinned } : t))
-      }
-    }
-  }, [userId, topics])
-
-  const setVoiceOverride = useCallback((topicId: string, voiceId: string | null) => {
-    updateTopic(topicId, { voice_override: voiceId })
-  }, [updateTopic])
-
-  const addCustomTag = useCallback(async (topicId: string, tag: string) => {
-    if (!userId) return
-
-    let newTags: string[] = []
-    let previousTags: string[] = []
-
-    setTopics(prev => prev.map(t => {
-      if (t.topic_id === topicId) {
-        if (t.custom_tags.includes(tag)) {
-          newTags = t.custom_tags // no change needed
-          return t
+  const updateCustomTags = useCallback(
+    (topicId: string, tags: string[]) => {
+      setUserTopics((prev) => {
+        const existing = prev.find((ut) => ut.topic_id === topicId)
+        if (existing) {
+          return prev.map((ut) =>
+            ut.topic_id === topicId ? { ...ut, custom_tags: tags } : ut
+          )
         }
-        previousTags = t.custom_tags
-        newTags = [...t.custom_tags, tag]
-        return { ...t, custom_tags: newTags }
-      }
-      return t
-    }))
+        return [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            user_id: '',
+            topic_id: topicId,
+            enabled: true,
+            custom_tags: tags,
+            sort_order: prev.length,
+          },
+        ]
+      })
+    },
+    []
+  )
 
-    if (newTags.length === 0 || newTags === previousTags) return
-
-    const { error } = await supabase.from('user_topics').update({ custom_tags: newTags }).eq('user_id', userId).eq('topic_id', topicId)
-    if (error) {
-      console.error('Failed to add tag:', error.message)
-      setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: previousTags } : t))
+  const saveUserTopics = useCallback(async () => {
+    if (!session) return
+    try {
+      const res = await fetch('/api/user-topics', {
+        method: 'PUT',
+        headers: authHeaders(session),
+        body: JSON.stringify(userTopics),
+      })
+      if (!res.ok) throw new Error('Failed to save user topics')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save')
     }
-  }, [userId])
-
-  const removeCustomTag = useCallback(async (topicId: string, tag: string) => {
-    if (!userId) return
-
-    let newTags: string[] = []
-    let previousTags: string[] = []
-
-    setTopics(prev => prev.map(t => {
-      if (t.topic_id === topicId) {
-        previousTags = t.custom_tags
-        newTags = t.custom_tags.filter(ct => ct !== tag)
-        return { ...t, custom_tags: newTags }
-      }
-      return t
-    }))
-
-    const { error } = await supabase.from('user_topics').update({ custom_tags: newTags }).eq('user_id', userId).eq('topic_id', topicId)
-    if (error) {
-      console.error('Failed to remove tag:', error.message)
-      setTopics(prev => prev.map(t => t.topic_id === topicId ? { ...t, custom_tags: previousTags } : t))
-    }
-  }, [userId])
+  }, [session, userTopics])
 
   return {
     topics,
-    loaded,
-    addTopic,
-    removeTopic,
-    updateTopic,
-    setWeight,
-    togglePin,
-    setVoiceOverride,
-    addCustomTag,
-    removeCustomTag,
-    topicCount: topics.length,
+    userTopics,
+    loading,
+    error,
+    toggleTopic,
+    updateCustomTags,
+    saveUserTopics,
+    refetch: fetchTopics,
   }
 }
