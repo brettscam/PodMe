@@ -1,44 +1,36 @@
 {
   "functions": {
-    "api/generate-segment.ts": {
+    "api/generate/index.ts": {
       "maxDuration": 120
     },
-"api/build-episode.ts": {
+    "api/generate/script.ts": {
       "maxDuration": 120
     },
-    "api/debug-env.ts": {
-      "maxDuration": 30
+    "api/generate/audio.ts": {
+      "maxDuration": 120
     },
-    "api/debug-imports.ts": {
+    "api/generate/status/[id].ts": {
       "maxDuration": 30
     },
     "api/health.ts": {
       "maxDuration": 30
     },
-    "api/cron/send-digests.ts": {
-      "maxDuration": 120
+    "api/topics.ts": {
+      "maxDuration": 30
     },
-    "api/cron/generate-episodes.ts": {
-      "maxDuration": 300
+    "api/preferences.ts": {
+      "maxDuration": 30
     },
-    "api/cron/ingest-content.ts": {
-      "maxDuration": 300
+    "api/user-topics.ts": {
+      "maxDuration": 30
+    },
+    "api/episodes/index.ts": {
+      "maxDuration": 30
+    },
+    "api/episodes/[id].ts": {
+      "maxDuration": 30
     }
   },
-  "crons": [
-    {
-      "path": "/api/cron/send-digests",
-      "schedule": "5,20,35,50 * * * *"
-    },
-    {
-      "path": "/api/cron/generate-episodes",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/ingest-content",
-      "schedule": "0 */4 * * *"
-    }
-  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
