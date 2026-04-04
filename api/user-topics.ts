@@ -38,10 +38,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'PUT') {
-      const { topics } = req.body || {}
+      // Accept either { topics: [...] } or a bare array
+      const body = req.body || {}
+      const topics: unknown[] = Array.isArray(body) ? body : (body.topics || [])
 
       if (!Array.isArray(topics)) {
-        return res.status(400).json({ error: 'Body must contain a topics array' })
+        return res.status(400).json({ error: 'Body must be an array or contain a topics array' })
       }
 
       // Validate each topic entry

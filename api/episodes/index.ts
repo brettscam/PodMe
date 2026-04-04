@@ -14,22 +14,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabase = getServiceClient()
 
   try {
-    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1)
-    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '20'), 10) || 20))
-    const offset = (page - 1) * limit
-
-    // Get total count
-    const { count, error: countError } = await supabase
-      .from('episodes')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-
-    if (countError) {
-      return res.status(500).json({ error: 'Failed to count episodes', detail: countError.message })
-    }
-
-    const total = count || 0
-    const pages = Math.ceil(total / limit)
+    const page = parseInt(String(req.query.page || '0'), 10) || 0
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '10'), 10) || 10))
+    const offset = page * limit
 
     // Get paginated episodes
     const { data: episodes, error } = await supabase
@@ -43,12 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to fetch episodes', detail: error.message })
     }
 
-    return res.status(200).json({
-      episodes: episodes || [],
-      total,
-      page,
-      pages,
-    })
+    // Return flat array (frontend expects Episode[])
+    return res.status(200).json(episodes || [])
   } catch (err) {
     console.error('GET /api/episodes error:', err)
     return res.status(500).json({ error: 'Internal server error' })

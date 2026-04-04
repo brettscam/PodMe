@@ -58,8 +58,8 @@ export default function App() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">
-            <span className="text-white">Pod</span>
-            <span className="text-indigo-500">Me</span>
+            <span className="text-white">Puck</span>
+            <span className="text-indigo-500">Puck</span>
           </h1>
           <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
@@ -78,8 +78,8 @@ export default function App() {
         {/* Header */}
         <header className="mb-6">
           <h1 className="text-2xl font-bold">
-            <span className="text-white">Pod</span>
-            <span className="text-indigo-500">Me</span>
+            <span className="text-white">Puck</span>
+            <span className="text-indigo-500">Puck</span>
           </h1>
         </header>
 

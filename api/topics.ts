@@ -1,12 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getServiceClient } from './lib/supabase'
+import { getServiceClient, getUserId } from './lib/supabase'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  // Require auth so RLS "to authenticated" policies pass
+  const userId = await getUserId(req)
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+
   try {
+    // Use service client to bypass RLS for read-only catalog data
     const supabase = getServiceClient()
 
     // Get all topics

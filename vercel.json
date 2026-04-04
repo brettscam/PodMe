@@ -27,6 +27,9 @@
     "api/episodes/index.ts": {
       "maxDuration": 30
     },
+    "api/episodes/today.ts": {
+      "maxDuration": 30
+    },
     "api/episodes/[id].ts": {
       "maxDuration": 30
     }

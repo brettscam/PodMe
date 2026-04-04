@@ -97,7 +97,14 @@ export function useTopics(session: Session | null) {
       const res = await fetch('/api/user-topics', {
         method: 'PUT',
         headers: authHeaders(session),
-        body: JSON.stringify(userTopics),
+        body: JSON.stringify(
+          userTopics.map((ut) => ({
+            topic_id: ut.topic_id,
+            enabled: ut.enabled,
+            custom_tags: ut.custom_tags,
+            sort_order: ut.sort_order,
+          }))
+        ),
       })
       if (!res.ok) throw new Error('Failed to save user topics')
     } catch (err) {

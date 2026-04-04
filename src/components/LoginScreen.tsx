@@ -7,8 +7,8 @@ export default function LoginScreen({ onSignInWithGoogle }: LoginScreenProps) {
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 w-full max-w-sm text-center">
         <h1 className="text-3xl font-bold mb-2">
-          <span className="text-white">Pod</span>
-          <span className="text-indigo-500">Me</span>
+          <span className="text-white">Puck</span>
+          <span className="text-indigo-500">Puck</span>
         </h1>
         <p className="text-gray-400 mb-8">Your personalized AI podcast</p>
 
