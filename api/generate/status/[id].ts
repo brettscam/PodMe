@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { data: episode, error } = await supabase
       .from('episodes')
-      .select('id, status, stage_progress, audio_url, error_message')
+      .select('id, status, stage_progress, audio_url, error_message, title, transcript')
       .eq('id', id)
       .eq('user_id', userId)
       .single()
