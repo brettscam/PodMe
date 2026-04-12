@@ -136,7 +136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const jsonMatch = editorResult.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('No JSON found in editor response')
       editorData = JSON.parse(jsonMatch[0])
-    } catch (parseErr) {
+    } catch {
       await supabase
         .from('episodes')
         .update({ status: 'failed', error_message: 'Failed to parse editor output' })

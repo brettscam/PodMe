@@ -79,7 +79,7 @@ async function generateTTS(text: string, voiceId: string): Promise<Buffer | null
     }
 
     const prediction = await createResponse.json()
-    let predictionUrl = prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`
+    const predictionUrl = prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`
 
     // Poll for completion (max 60 seconds)
     const maxWait = 60_000
