@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getServiceClient, getUserId } from '../lib/supabase'
 import { fetchRssForTopic, type FetchedContent } from '../lib/rss-fetcher'
 import { callClaude } from '../lib/claude'
+import { canCreateEpisode } from '../lib/tier'
 
 const EDITOR_SYSTEM_PROMPT = `You are a senior news editor. Given these articles organized by topic, select the 3-5 most compelling stories per topic. Drop stale or low-quality items. Order stories for maximum narrative flow. Output JSON: { stories: [{ topic_id, title, summary, key_points: string[], sources: [{ name, url, article_title }], needs_verification: string[] }] }`
 
@@ -20,6 +21,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabase = getServiceClient()
 
   try {
+    // 0. Enforce weekly episode quota, but allow regen of today's existing episode
+    const todayDate = new Date().toISOString().split('T')[0]
+    const { data: existingToday } = await supabase
+      .from('episodes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('date', todayDate)
+      .maybeSingle()
+
+    if (!existingToday) {
+      const quota = await canCreateEpisode(supabase, userId)
+      if (!quota.allowed) {
+        return res.status(402).json({
+          error: 'quota_exceeded',
+          reason: quota.reason,
+          tier: quota.tier,
+          limit: quota.limit,
+          used: quota.used,
+        })
+      }
+    }
+
     // 1. Get user's enabled topics with custom_tags
     const { data: userTopics, error: topicsError } = await supabase
       .from('user_topics')
@@ -47,13 +70,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const episodeLength = prefs?.episode_length || 'medium'
 
     // 3. Create or upsert episode record
-    const today = new Date().toISOString().split('T')[0]
     const { data: episode, error: episodeError } = await supabase
       .from('episodes')
       .upsert(
         {
           user_id: userId,
-          date: today,
+          date: todayDate,
           title: `Your Daily Briefing — ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
           status: 'gathering',
           stage_progress: 'Fetching RSS feeds...',

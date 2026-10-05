@@ -214,7 +214,8 @@ export function useEpisodes(session: Session | null) {
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || 'Failed to start generation')
+        // Prefer human-readable reason (e.g. quota messages) over error code
+        throw new Error(errData.reason || errData.error || 'Failed to start generation')
       }
       const { episode_id } = await res.json()
 

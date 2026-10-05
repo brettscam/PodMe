@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { useTopics } from './hooks/useTopics'
 import { usePreferences } from './hooks/usePreferences'
 import { useEpisodes } from './hooks/useEpisodes'
+import { useTier } from './hooks/useTier'
 import LoginScreen from './components/LoginScreen'
 import BottomNav from './components/BottomNav'
 import TodayView from './components/TodayView'
@@ -43,6 +44,8 @@ export default function App() {
     hasMore,
     playEpisode,
   } = useEpisodes(session)
+
+  const tierState = useTier(session)
 
   const handlePlayEpisode = useCallback(
     (id: string) => {
@@ -115,6 +118,7 @@ export default function App() {
             preferences={preferences}
             preferencesLoading={preferencesLoading}
             topicsLoading={topicsLoading}
+            tier={tierState}
             onToggleTopic={toggleTopic}
             onUpdateCustomTags={updateCustomTags}
             onSaveTopics={saveUserTopics}

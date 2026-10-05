@@ -64,3 +64,19 @@ export interface UserProfile {
 }
 
 export type ViewName = 'today' | 'library' | 'settings'
+
+export type Tier = 'free' | 'pro' | 'unlimited'
+
+export interface TierInfo {
+  tier: Tier
+  limits: {
+    customTopics: number | null
+    episodesPerWeek: number | null
+    voicePacks: string[] | null
+    maxEpisodeLength: EpisodeLength
+  }
+  usage: {
+    episodesThisWeek: number
+    customTopics: number
+  }
+}

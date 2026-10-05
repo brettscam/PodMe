@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react'
-import { X, LogOut } from 'lucide-react'
+import { X, LogOut, Sparkles } from 'lucide-react'
 import type { Session } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
 import type { Topic, UserTopic, UserPreferences, Tone, EpisodeLength } from '../lib/types'
+import type { useTier } from '../hooks/useTier'
 
 interface SettingsViewProps {
   user: User
@@ -12,6 +13,7 @@ interface SettingsViewProps {
   preferences: UserPreferences
   preferencesLoading: boolean
   topicsLoading: boolean
+  tier: ReturnType<typeof useTier>
   onToggleTopic: (topicId: string, enabled: boolean) => void
   onUpdateCustomTags: (topicId: string, tags: string[]) => void
   onSaveTopics: () => void
@@ -19,6 +21,12 @@ interface SettingsViewProps {
   onGenerate: () => void
   generating: boolean
   onSignOut: () => void
+}
+
+const TIER_LABELS: Record<'free' | 'pro' | 'unlimited', string> = {
+  free: 'Free',
+  pro: 'Pro',
+  unlimited: 'Unlimited',
 }
 
 const TONES: { value: Tone; label: string }[] = [
@@ -44,6 +52,7 @@ export default function SettingsView({
   preferences,
   preferencesLoading,
   topicsLoading,
+  tier,
   onToggleTopic,
   onUpdateCustomTags,
   onSaveTopics,
@@ -94,8 +103,78 @@ export default function SettingsView({
   const displayName =
     user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'User'
 
+  const episodeLimitLabel =
+    tier.episodeLimit === null ? '∞' : tier.episodeLimit
+  const customTopicLimitLabel =
+    tier.customTopicLimit === null ? '∞' : tier.customTopicLimit
+
   return (
     <div className="space-y-6 pb-4">
+      {/* Plan */}
+      <section>
+        <h2 className="text-white font-semibold text-base mb-3">Plan</h2>
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-white text-sm font-medium">
+                {TIER_LABELS[tier.tier]}
+              </span>
+              {tier.tier === 'free' && (
+                <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                  Current plan
+                </span>
+              )}
+            </div>
+            {tier.canUpgrade && (
+              <button
+                disabled
+                className="flex items-center gap-1 bg-indigo-600/20 text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-md cursor-not-allowed"
+                title="Billing coming soon"
+              >
+                <Sparkles size={12} />
+                Upgrade
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Episodes this week</span>
+              <span className="text-white tabular-nums">
+                {tier.episodeUsed}/{episodeLimitLabel}
+              </span>
+            </div>
+            {tier.episodeLimit !== null && (
+              <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    tier.atEpisodeLimit ? 'bg-amber-500' : 'bg-indigo-500'
+                  }`}
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (tier.episodeUsed / tier.episodeLimit) * 100
+                    )}%`,
+                  }}
+                />
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-gray-400">Custom topics</span>
+              <span className="text-white tabular-nums">
+                {tier.customTopicUsed}/{customTopicLimitLabel}
+              </span>
+            </div>
+          </div>
+
+          {tier.atEpisodeLimit && (
+            <p className="text-xs text-amber-400 mt-3">
+              You've reached your weekly limit. Resets Monday.
+            </p>
+          )}
+        </div>
+      </section>
+
       {/* Topics */}
       <section>
         <h2 className="text-white font-semibold text-base mb-3">Topics</h2>
