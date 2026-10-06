@@ -32,6 +32,27 @@
     },
     "api/episodes/[id].ts": {
       "maxDuration": 30
+    },
+    "api/me.ts": {
+      "maxDuration": 30
+    },
+    "api/custom-topics/index.ts": {
+      "maxDuration": 30
+    },
+    "api/custom-topics/[id].ts": {
+      "maxDuration": 30
+    },
+    "api/custom-topics/analyze.ts": {
+      "maxDuration": 60
+    },
+    "api/billing/checkout.ts": {
+      "maxDuration": 30
+    },
+    "api/billing/portal.ts": {
+      "maxDuration": 30
+    },
+    "api/billing/webhook.ts": {
+      "maxDuration": 30
     }
   },
   "rewrites": [

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Check,
   Lock,
+  CreditCard,
 } from 'lucide-react'
 import type { Session, User } from '@supabase/supabase-js'
 import type {
@@ -23,6 +24,7 @@ import type {
 } from '../lib/types'
 import type { useTier } from '../hooks/useTier'
 import type { useCustomTopics } from '../hooks/useCustomTopics'
+import type { useBilling, BillingInterval, PaidTier } from '../hooks/useBilling'
 import CustomTopicCreator from './CustomTopicCreator'
 
 interface SettingsViewProps {
@@ -35,6 +37,7 @@ interface SettingsViewProps {
   topicsLoading: boolean
   tier: ReturnType<typeof useTier>
   customTopics: ReturnType<typeof useCustomTopics>
+  billing: ReturnType<typeof useBilling>
   onToggleTopic: (topicId: string, enabled: boolean) => void
   onUpdateCustomTags: (topicId: string, tags: string[]) => void
   onSaveTopics: () => void
@@ -50,11 +53,12 @@ const TIER_LABELS: Record<Tier, string> = {
   unlimited: 'Unlimited',
 }
 
-const TIER_PRICES: Record<Tier, string> = {
-  free: '$0',
-  pro: '$7.99/mo',
-  unlimited: '$14.99/mo',
+const TIER_PRICES: Record<BillingInterval, Record<Tier, string>> = {
+  monthly: { free: '$0', pro: '$7.99/mo', unlimited: '$14.99/mo' },
+  yearly: { free: '$0', pro: '$59/yr', unlimited: '$119/yr' },
 }
+
+const TIER_ORDER: Tier[] = ['free', 'pro', 'unlimited']
 
 interface TierFeature {
   label: string
@@ -101,6 +105,7 @@ export default function SettingsView({
   topicsLoading,
   tier,
   customTopics,
+  billing,
   onToggleTopic,
   onUpdateCustomTags,
   onSaveTopics,
@@ -112,6 +117,7 @@ export default function SettingsView({
   const [tagInputs, setTagInputs] = useState<Record<string, string>>({})
   const [compareOpen, setCompareOpen] = useState(false)
   const [creatorOpen, setCreatorOpen] = useState(false)
+  const [interval, setInterval] = useState<BillingInterval>('monthly')
 
   const isTopicEnabled = useCallback(
     (topicId: string) => {
@@ -169,17 +175,25 @@ export default function SettingsView({
               <div className="flex items-center gap-2">
                 <TierBadge tier={tier.tier} />
                 <span className="text-xs text-gray-500">
-                  {TIER_PRICES[tier.tier]}
+                  {TIER_PRICES.monthly[tier.tier]}
                 </span>
               </div>
-              {tier.canUpgrade && (
+              {tier.tier === 'free' ? (
                 <button
-                  disabled
-                  className="flex items-center gap-1 bg-indigo-600/20 text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-md cursor-not-allowed"
-                  title="Billing coming soon"
+                  onClick={() => setCompareOpen(true)}
+                  className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
                 >
                   <Sparkles size={12} />
                   Upgrade
+                </button>
+              ) : (
+                <button
+                  onClick={billing.openPortal}
+                  disabled={billing.pending}
+                  className="flex items-center gap-1 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-300 text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
+                >
+                  <CreditCard size={12} />
+                  {billing.pending ? 'Opening…' : 'Manage billing'}
                 </button>
               )}
             </div>
@@ -206,6 +220,12 @@ export default function SettingsView({
                 Weekly limit reached. Resets Monday.
               </p>
             )}
+
+            {billing.error && (
+              <p className="text-xs text-red-400 mt-3 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                {billing.error}
+              </p>
+            )}
           </div>
 
           {/* Tier comparison (collapsed by default) */}
@@ -221,10 +241,30 @@ export default function SettingsView({
           </button>
           {compareOpen && (
             <div className="border-t border-gray-800 p-4 bg-black/20">
+              {/* Billing interval toggle */}
+              <div className="flex items-center justify-center gap-1 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-1 w-fit mx-auto">
+                {(['monthly', 'yearly'] as BillingInterval[]).map((iv) => (
+                  <button
+                    key={iv}
+                    onClick={() => setInterval(iv)}
+                    className={`text-[11px] font-medium px-3 py-1 rounded-md transition-colors capitalize ${
+                      interval === iv
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {iv}
+                    {iv === 'yearly' && (
+                      <span className="ml-1 text-emerald-400">−38%</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
               <div className="grid grid-cols-[1.3fr_1fr_1fr_1fr] gap-1 text-xs">
                 {/* Header row */}
                 <div></div>
-                {(['free', 'pro', 'unlimited'] as Tier[]).map((t) => (
+                {TIER_ORDER.map((t) => (
                   <div
                     key={t}
                     className={`text-center uppercase tracking-wider text-[10px] font-semibold py-1 ${
@@ -238,14 +278,14 @@ export default function SettingsView({
                 <div className="text-gray-500 text-[10px] uppercase tracking-wider self-center">
                   Price
                 </div>
-                {(['free', 'pro', 'unlimited'] as Tier[]).map((t) => (
+                {TIER_ORDER.map((t) => (
                   <div
                     key={t}
                     className={`text-center tabular-nums py-1 ${
                       tier.tier === t ? 'text-white font-medium' : 'text-gray-400'
                     }`}
                   >
-                    {TIER_PRICES[t]}
+                    {TIER_PRICES[interval][t]}
                   </div>
                 ))}
                 {/* Feature rows */}
@@ -257,10 +297,34 @@ export default function SettingsView({
                     currentTier={tier.tier}
                   />
                 ))}
+                {/* Action row */}
+                <div></div>
+                {TIER_ORDER.map((t) => (
+                  <div key={t} className="pt-2 px-0.5">
+                    {t === tier.tier ? (
+                      <div className="text-center text-[10px] uppercase tracking-wider text-gray-500 py-1.5">
+                        Current
+                      </div>
+                    ) : t === 'free' ? (
+                      <div className="text-center text-[10px] text-gray-600 py-1.5">—</div>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          billing.startCheckout(t as PaidTier, interval)
+                        }
+                        disabled={billing.pending}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[11px] font-medium py-1.5 rounded-md transition-colors"
+                      >
+                        {billing.pending ? '…' : 'Choose'}
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
               <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
                 All tiers include every built-in topic and the shared feed pool. Pro
-                unlocks daily cadence, deeper topics, and the full voice library.
+                unlocks daily cadence, deeper topics, and the full voice library. Cancel
+                anytime — you keep access through the end of the paid period.
               </p>
             </div>
           )}
@@ -339,7 +403,14 @@ export default function SettingsView({
 
             {/* Add button */}
             <button
-              onClick={() => setCreatorOpen(true)}
+              onClick={() => {
+                if (tier.atCustomTopicLimit) {
+                  setCompareOpen(true)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                } else {
+                  setCreatorOpen(true)
+                }
+              }}
               className={`w-full border-dashed border-2 rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
                 tier.atCustomTopicLimit
                   ? 'border-amber-500/30 text-amber-400 hover:bg-amber-500/5'
@@ -349,7 +420,7 @@ export default function SettingsView({
               {tier.atCustomTopicLimit ? (
                 <>
                   <Lock size={14} />
-                  Upgrade to add more
+                  Upgrade for {TIER_COMPARISON[1].values.pro} topics
                 </>
               ) : (
                 <>
