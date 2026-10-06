@@ -22,6 +22,7 @@ export interface UserTopic {
   id: string
   user_id: string
   topic_id: string
+  custom_topic_id?: string | null
   enabled: boolean
   custom_tags: string[]
   sort_order: number
@@ -64,6 +65,38 @@ export interface UserProfile {
 }
 
 export type ViewName = 'today' | 'library' | 'settings'
+
+export type FeedKind = 'rss' | 'reddit' | 'atom'
+
+export interface FeedPoolEntry {
+  id: string
+  url: string
+  name: string
+  kind: FeedKind
+  tier: 1 | 2 | 3
+  categories?: string[]
+  tags?: string[]
+  description?: string | null
+  match_reason?: 'category' | 'tag' | 'both'
+}
+
+export interface DiscoveredFeed {
+  url: string
+  name: string
+  kind: FeedKind
+  tier: 1 | 2 | 3
+  tags: string[]
+  rationale: string
+}
+
+export interface CustomTopic {
+  id: string
+  label: string
+  parent_category: string
+  search_terms: string[]
+  created_at: string
+  feeds: FeedPoolEntry[]
+}
 
 export type Tier = 'free' | 'pro' | 'unlimited'
 

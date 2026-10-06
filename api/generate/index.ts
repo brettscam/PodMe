@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getServiceClient, getUserId } from '../lib/supabase'
 import { fetchRssForTopic, type FetchedContent } from '../lib/rss-fetcher'
+import { fetchContentForCustomTopic } from '../lib/custom-topic-fetcher'
 import { callClaude } from '../lib/claude'
 import { canCreateEpisode } from '../lib/tier'
 
@@ -43,10 +44,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 1. Get user's enabled topics with custom_tags
+    // 1. Get user's enabled topics (built-in + custom) with custom_tags
     const { data: userTopics, error: topicsError } = await supabase
       .from('user_topics')
-      .select('topic_id, custom_tags, sort_order')
+      .select(`
+        topic_id,
+        custom_topic_id,
+        custom_tags,
+        sort_order,
+        custom_topics ( id, label, search_terms )
+      `)
       .eq('user_id', userId)
       .eq('enabled', true)
       .order('sort_order')
@@ -96,10 +103,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const episodeId = episode.id
 
-    // 4. Fetch RSS for each enabled topic in parallel
+    // 4. Fetch content for each enabled topic in parallel.
+    // Built-in topics pull from topic_feeds via rss-fetcher. Custom topics
+    // pull from custom_topic_feeds → feed_pool via custom-topic-fetcher.
     const topicResults: { topicId: string; content: FetchedContent }[] = []
 
     const fetchPromises = userTopics.map(async (ut) => {
+      if (ut.custom_topic_id) {
+        const customTopic = Array.isArray(ut.custom_topics) ? ut.custom_topics[0] : ut.custom_topics
+        const searchTerms = (customTopic?.search_terms as string[] | null) ?? []
+        const content = await fetchContentForCustomTopic(
+          ut.custom_topic_id,
+          [...(ut.custom_tags || []), ...searchTerms],
+          supabase,
+        )
+        return { topicId: `custom:${ut.custom_topic_id}`, content }
+      }
       const content = await fetchRssForTopic(ut.topic_id, ut.custom_tags || [], supabase)
       return { topicId: ut.topic_id, content }
     })
