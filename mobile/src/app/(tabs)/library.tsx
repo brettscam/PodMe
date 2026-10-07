@@ -10,7 +10,7 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useAuthContext } from '../../context/AuthContext'
+import { useAuthContext } from '../../context/auth-context'
 import { useEpisodes } from '../../hooks/useEpisodes'
 import { Eyebrow, Spinner } from '../../components/ui'
 import { theme } from '../../lib/theme'

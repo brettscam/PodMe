@@ -1,10 +1,7 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useRouter, useSegments } from 'expo-router'
 import { useAuth } from '../hooks/useAuth'
-
-type AuthValue = ReturnType<typeof useAuth>
-
-const AuthContext = createContext<AuthValue | null>(null)
+import { AuthContext } from './auth-context'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth()
@@ -26,10 +23,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth.loading, auth.session, segments, router])
 
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>
-}
-
-export function useAuthContext(): AuthValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuthContext must be used inside AuthProvider')
-  return ctx
 }

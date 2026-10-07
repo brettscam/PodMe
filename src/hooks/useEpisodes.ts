@@ -34,12 +34,21 @@ export function useEpisodes(session: Session | null) {
   const [hasMore, setHasMore] = useState(true)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Episode currently being watched, so polling can resume after the tab wakes. */
+  const watchingRef = useRef<string | null>(null)
+
+  /** Stop the status poll but leave the overall deadline running. */
+  const clearPoll = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = null
+  }, [])
 
   const clearTimers = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     pollRef.current = null
     timeoutRef.current = null
+    watchingRef.current = null
   }, [])
 
   // Fetch today's episode
@@ -97,12 +106,19 @@ export function useEpisodes(session: Session | null) {
     fetchEpisodes(next, true)
   }, [page, fetchEpisodes])
 
-  // Poll generation status
+  /**
+   * Watch an episode's status.
+   *
+   * Display only. The server chains gathering → script → audio itself, so
+   * this never advances the pipeline and the page can be closed mid-run
+   * without stranding the episode.
+   */
   const pollStatus = useCallback(
-    (episodeId: string, nextStage: 'script' | 'audio' | 'done') => {
+    (episodeId: string) => {
       if (!session) return
+      watchingRef.current = episodeId
 
-      pollRef.current = setInterval(async () => {
+      const check = async () => {
         try {
           const res = await fetch(`/api/generate/status/${episodeId}`, {
             headers: { Authorization: `Bearer ${session.access_token}` },
@@ -110,19 +126,15 @@ export function useEpisodes(session: Session | null) {
           if (!res.ok) return
           const data = await res.json()
 
-          setGeneration((prev) => ({
-            ...prev,
-            status: data.status,
-            stageProgress: data.stage_progress,
-          }))
-
           if (data.status === 'failed') {
             clearTimers()
-            setGeneration((prev) => ({
-              ...prev,
+            setGeneration({
               generating: false,
+              status: 'failed',
+              stageProgress: null,
               error: data.error_message || 'Generation failed',
-            }))
+            })
+            fetchToday()
             return
           }
 
@@ -138,63 +150,52 @@ export function useEpisodes(session: Session | null) {
             return
           }
 
-          // Stage transitions
-          if (nextStage === 'script' && data.status === 'building' && data.title) {
-            // Metadata exists, trigger script generation
-            clearTimers()
-            try {
-              await fetch('/api/generate/script', {
-                method: 'POST',
-                headers: authHeaders(session),
-                body: JSON.stringify({ episode_id: episodeId }),
-              })
-              setGeneration((prev) => ({
-                ...prev,
-                status: 'scripting',
-                stageProgress: 'Writing script...',
-              }))
-              pollStatus(episodeId, 'audio')
-            } catch {
-              setGeneration((prev) => ({
-                ...prev,
-                generating: false,
-                error: 'Failed to start script generation',
-              }))
-            }
-            return
-          }
-
-          if (nextStage === 'audio' && data.status === 'scripting' && data.transcript) {
-            // Script done, trigger audio
-            clearTimers()
-            try {
-              await fetch('/api/generate/audio', {
-                method: 'POST',
-                headers: authHeaders(session),
-                body: JSON.stringify({ episode_id: episodeId }),
-              })
-              setGeneration((prev) => ({
-                ...prev,
-                status: 'voicing',
-                stageProgress: 'Generating audio...',
-              }))
-              pollStatus(episodeId, 'done')
-            } catch {
-              setGeneration((prev) => ({
-                ...prev,
-                generating: false,
-                error: 'Failed to start audio generation',
-              }))
-            }
-            return
-          }
+          setGeneration((prev) => ({
+            ...prev,
+            generating: true,
+            status: data.status,
+            stageProgress: data.stage_progress,
+          }))
         } catch {
-          // continue polling on network errors
+          // Keep watching through transient network errors.
         }
-      }, POLL_INTERVAL)
+      }
+
+      clearPoll()
+      pollRef.current = setInterval(check, POLL_INTERVAL)
+      check()
     },
-    [session, clearTimers, fetchToday]
+    [session, clearPoll, clearTimers, fetchToday]
   )
+
+  // iOS suspends timers when the tab is backgrounded or the phone locks, so
+  // the interval can be frozen for minutes. Re-sync as soon as we're visible
+  // again rather than waiting for the next tick that may never come.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      const episodeId = watchingRef.current
+      if (episodeId) pollStatus(episodeId)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [pollStatus])
+
+  // Reattach to an episode still in flight — after a reload, or when the
+  // generation was kicked off on another device.
+  useEffect(() => {
+    if (!todayEpisode || watchingRef.current) return
+    const inFlight = ['pending', 'gathering', 'building', 'scripting', 'voicing']
+    if (!inFlight.includes(todayEpisode.status)) return
+
+    setGeneration({
+      generating: true,
+      status: todayEpisode.status,
+      stageProgress: todayEpisode.stage_progress,
+      error: null,
+    })
+    pollStatus(todayEpisode.id)
+  }, [todayEpisode, pollStatus])
 
   // Start generation
   const generateNow = useCallback(async () => {
@@ -219,18 +220,19 @@ export function useEpisodes(session: Session | null) {
       }
       const { episode_id } = await res.json()
 
-      // Set timeout
+      // Stop watching after a while. The run itself continues on the server
+      // and the sweeper finishes or fails it, so this only ends the live view.
       timeoutRef.current = setTimeout(() => {
         clearTimers()
         setGeneration((prev) => ({
           ...prev,
           generating: false,
-          error: 'Generation timed out after 5 minutes',
+          error:
+            'Still working on this one. It finishes on our servers — reload in a minute to check.',
         }))
       }, GENERATION_TIMEOUT)
 
-      // Start polling
-      pollStatus(episode_id, 'script')
+      pollStatus(episode_id)
     } catch (err) {
       setGeneration((prev) => ({
         ...prev,

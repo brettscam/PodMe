@@ -53,8 +53,17 @@
     },
     "api/billing/webhook.ts": {
       "maxDuration": 30
+    },
+    "api/cron/sweep-episodes.ts": {
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/sweep-episodes",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }

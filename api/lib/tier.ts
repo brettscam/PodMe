@@ -73,7 +73,13 @@ export async function getUserTier(
   }
 }
 
-/** Count episodes created in the current ISO week (Mon 00:00 UTC → now). */
+/**
+ * Count episodes created in the current ISO week (Mon 00:00 UTC → now).
+ *
+ * Failed episodes are excluded: the user got nothing, so charging them a
+ * weekly slot for a stalled or errored run would be punishing them for our
+ * bug. The sweeper marks unrecoverable episodes failed, which returns the slot.
+ */
 export async function getWeeklyEpisodeCount(
   supabase: SupabaseClient,
   userId: string,
@@ -83,6 +89,7 @@ export async function getWeeklyEpisodeCount(
     .from('episodes')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
+    .neq('status', 'failed')
     .gte('created_at', weekStart.toISOString())
 
   if (error) {

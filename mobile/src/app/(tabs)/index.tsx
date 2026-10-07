@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useAuthContext } from '../../context/AuthContext'
+import { useAuthContext } from '../../context/auth-context'
 import { useEpisodes } from '../../hooks/useEpisodes'
 import { useTier } from '../../hooks/useTier'
 import AudioPlayer from '../../components/AudioPlayer'

@@ -4,6 +4,7 @@ import { fetchRssForTopic, type FetchedContent } from '../lib/rss-fetcher'
 import { fetchContentForCustomTopic } from '../lib/custom-topic-fetcher'
 import { callClaude } from '../lib/claude'
 import { canCreateEpisode } from '../lib/tier'
+import { triggerStage } from '../lib/pipeline'
 
 const EDITOR_SYSTEM_PROMPT = `You are a senior news editor. Given these articles organized by topic, select the 3-5 most compelling stories per topic. Drop stale or low-quality items. Order stories for maximum narrative flow. Output JSON: { stories: [{ topic_id, title, summary, key_points: string[], sources: [{ name, url, article_title }], needs_verification: string[] }] }`
 
@@ -224,9 +225,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('episodes')
       .update({
         metadata: finalStories,
-        stage_progress: 'Content curation complete. Ready for script generation.',
+        stage_progress: 'Content curation complete. Writing script…',
       })
       .eq('id', episodeId)
+
+    // 10. Hand off to the script stage server-side. The client polls only to
+    // display progress now — closing the tab no longer strands the episode.
+    triggerStage('script', episodeId)
 
     return res.status(200).json({
       episode_id: episodeId,
