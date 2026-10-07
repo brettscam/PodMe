@@ -184,9 +184,9 @@ export default function SettingsView({
                   className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition-colors"
                 >
                   <Sparkles size={12} />
-                  Upgrade
+                  {tier.billingEnabled ? 'Upgrade' : 'See plans'}
                 </button>
-              ) : (
+              ) : !tier.billingEnabled ? null : (
                 <button
                   onClick={billing.openPortal}
                   disabled={billing.pending}
@@ -307,6 +307,10 @@ export default function SettingsView({
                       </div>
                     ) : t === 'free' ? (
                       <div className="text-center text-[10px] text-gray-600 py-1.5">—</div>
+                    ) : !tier.billingEnabled ? (
+                      <div className="text-center text-[10px] text-gray-500 py-1.5">
+                        Soon
+                      </div>
                     ) : (
                       <button
                         onClick={() =>
@@ -323,8 +327,10 @@ export default function SettingsView({
               </div>
               <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
                 All tiers include every built-in topic and the shared feed pool. Pro
-                unlocks daily cadence, deeper topics, and the full voice library. Cancel
-                anytime — you keep access through the end of the paid period.
+                unlocks daily cadence, deeper topics, and the full voice library.
+                {tier.billingEnabled
+                  ? ' Cancel anytime — you keep access through the end of the paid period.'
+                  : ' Paid plans open shortly. Everyone is on Free until then.'}
               </p>
             </div>
           )}

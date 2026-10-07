@@ -112,4 +112,6 @@ export interface TierInfo {
     episodesThisWeek: number
     customTopics: number
   }
+  /** False when Stripe keys/prices aren't set, so the UI can hide checkout. */
+  billingEnabled: boolean
 }

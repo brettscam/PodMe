@@ -58,6 +58,8 @@ export function useTier(session: Session | null) {
     customTopicUsed,
     atCustomTopicLimit,
     canUpgrade: tier !== 'unlimited',
+    // Default false so a stale/failed /api/me never offers a broken checkout.
+    billingEnabled: info?.billingEnabled ?? false,
     refetch,
   }
 }

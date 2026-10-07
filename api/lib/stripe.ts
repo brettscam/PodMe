@@ -27,6 +27,17 @@ export function getPriceId(tier: PaidTier, interval: BillingInterval): string | 
   return process.env[key] ?? null
 }
 
+/**
+ * Whether billing is usable in this environment.
+ *
+ * The upgrade UI reads this so a half-configured deploy shows "Coming soon"
+ * instead of sending the user into a checkout that 500s.
+ */
+export function isBillingConfigured(): boolean {
+  if (!process.env.STRIPE_SECRET_KEY) return false
+  return Boolean(getPriceId('pro', 'monthly'))
+}
+
 /** Reverse lookup: Stripe price ID → our tier. Returns null for unknown prices. */
 export function tierForPriceId(priceId: string | null | undefined): PaidTier | null {
   if (!priceId) return null

@@ -5,6 +5,7 @@ import {
   getUserTier,
   getWeeklyEpisodeCount,
 } from './lib/tier'
+import { isBillingConfigured } from './lib/stripe'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -47,6 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         episodesThisWeek: episodesUsed,
         customTopics: customTopicsUsed,
       },
+      billingEnabled: isBillingConfigured(),
     })
   } catch (err) {
     console.error('GET /api/me error:', err)
