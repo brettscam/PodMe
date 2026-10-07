@@ -7,6 +7,46 @@ export interface RssArticle {
   tier: 1 | 2 | 3
 }
 
+/**
+ * Hard cutoff for a daily briefing. Nothing older than this reaches the
+ * editor, whatever a feed claims.
+ *
+ * Dormant feeds keep serving their last items forever, so without this an
+ * October episode can be built from June articles — the feed is reachable,
+ * the parse succeeds, and the stories just happen to be months old.
+ */
+export const MAX_ARTICLE_AGE_DAYS = 7
+
+/** Age in whole days, or null when the feed gave no usable date. */
+export function articleAgeDays(article: RssArticle, now = Date.now()): number | null {
+  if (!article.published_at) return null
+  const published = new Date(article.published_at).getTime()
+  if (Number.isNaN(published)) return null
+  return Math.floor((now - published) / 86_400_000)
+}
+
+/**
+ * Drop anything past the cutoff.
+ *
+ * Undated articles are kept rather than dropped — plenty of legitimate feeds
+ * have sloppy date fields, and discarding them loses real content. They are
+ * surfaced to the editor as unknown-age so it can be sceptical, which is a
+ * judgement call the model is better placed to make than this filter.
+ * Articles dated in the future are kept too; clock skew is common and a
+ * slightly-ahead timestamp is not evidence of staleness.
+ */
+export function filterRecent(
+  articles: RssArticle[],
+  maxAgeDays: number = MAX_ARTICLE_AGE_DAYS,
+  now = Date.now(),
+): RssArticle[] {
+  return articles.filter((a) => {
+    const age = articleAgeDays(a, now)
+    if (age === null) return true
+    return age <= maxAgeDays
+  })
+}
+
 /** Decode common HTML/XML entities. */
 function decodeEntities(text: string): string {
   return text

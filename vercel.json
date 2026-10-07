@@ -56,12 +56,19 @@
     },
     "api/cron/sweep-episodes.ts": {
       "maxDuration": 60
+    },
+    "api/cron/validate-feeds.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
     {
       "path": "/api/cron/sweep-episodes",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/validate-feeds",
+      "schedule": "17 */6 * * *"
     }
   ],
   "rewrites": [

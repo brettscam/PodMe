@@ -1,22 +1,34 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getServiceClient, getUserId } from '../lib/supabase'
 import { callClaude } from '../lib/claude'
-import { normalizeSubredditToRss } from '../lib/custom-topic-fetcher'
+import {
+  normalizeSubredditToRss,
+  normalizeSubstackToRss,
+} from '../lib/custom-topic-fetcher'
 
 const DISCOVERY_SYSTEM_PROMPT = `You are a research librarian who maintains a curated database of RSS feeds and Reddit communities.
 
 Given a user's custom topic (label + parent category + search terms), propose up to 8 high-quality sources that cover it. For each, output:
 - url: the RSS/Atom feed URL (not the homepage)
 - name: short human-readable name
-- kind: "rss" | "reddit" | "atom"
+- kind: "rss" | "reddit" | "atom" | "substack"
 - tier: 1 (authoritative/wire), 2 (mainstream), 3 (niche/community)
 - tags: 2-5 keywords
 - rationale: one short sentence
 
+Aim for a mix of source types rather than eight of the same kind:
+- Publications and trade press for the topic
+- Reddit communities, as https://www.reddit.com/r/<subreddit>/.rss
+- Substack newsletters, as <publication>/feed — works on both
+  *.substack.com and custom domains. Independent writers often have the
+  best coverage of narrow topics, so include them for niche subjects.
+- Local outlets when the topic is tied to a place
+
 Hard rules:
 - Only propose feeds you are confident actually exist and are current.
-- For Reddit communities, use https://www.reddit.com/r/<subreddit>/.rss form.
-- Prefer official, long-lived feeds over aggregators or dead blogs.
+- Prefer official, long-lived feeds over aggregators.
+- Skip anything you believe has stopped publishing. A dormant feed still
+  returns its old items and quietly poisons a daily briefing with stale news.
 - Do not propose feeds behind paywalls that block the RSS XML itself.
 
 Output ONLY valid JSON: { "feeds": [{ ... }, ...] }`
@@ -41,10 +53,13 @@ interface PoolMatch {
   match_reason: 'category' | 'tag' | 'both'
 }
 
+const DISCOVERABLE_KINDS = ['rss', 'reddit', 'atom', 'substack'] as const
+type DiscoverableKind = (typeof DISCOVERABLE_KINDS)[number]
+
 interface DiscoveredFeed {
   url: string
   name: string
-  kind: 'rss' | 'reddit' | 'atom'
+  kind: DiscoverableKind
   tier: 1 | 2 | 3
   tags: string[]
   rationale: string
@@ -112,14 +127,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('Claude discovery failed:', (err as Error).message)
       }
 
-      // Normalize Reddit URLs; drop anything that's not a plausible feed URL
+      // Normalize to real feed URLs — discovery often returns a homepage or a
+      // bare handle rather than the feed itself.
       discovered = discovered
         .map((f) => {
-          if (f.kind === 'reddit') {
-            const normalized = normalizeSubredditToRss(f.url)
-            if (normalized) return { ...f, url: normalized }
-          }
-          return f
+          const normalized =
+            f.kind === 'reddit'
+              ? normalizeSubredditToRss(f.url)
+              : f.kind === 'substack'
+                ? normalizeSubstackToRss(f.url)
+                : null
+          return normalized ? { ...f, url: normalized } : f
         })
         .filter((f) => isPlausibleFeedUrl(f.url))
 
@@ -204,7 +222,7 @@ Return ONLY the JSON object. No prose, no markdown fences.`
       (f): f is DiscoveredFeed =>
         typeof f.url === 'string' &&
         typeof f.name === 'string' &&
-        (f.kind === 'rss' || f.kind === 'reddit' || f.kind === 'atom'),
+        DISCOVERABLE_KINDS.includes(f.kind as DiscoverableKind),
     )
     .map((f) => ({
       ...f,

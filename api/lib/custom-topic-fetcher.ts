@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { parseRssFeed, type RssArticle } from './rss-parser'
+import { parseRssFeed, filterRecent, type RssArticle } from './rss-parser'
 
 export interface FetchedContent {
   articles: RssArticle[]
@@ -7,12 +7,14 @@ export interface FetchedContent {
   feeds_succeeded: number
 }
 
+export type FeedKind = 'rss' | 'reddit' | 'atom' | 'substack' | 'youtube'
+
 interface PoolFeed {
   id: string
   url: string
   name: string
   tier: 1 | 2 | 3
-  kind: 'rss' | 'reddit' | 'atom'
+  kind: FeedKind
 }
 
 const FETCH_TIMEOUT_MS = 10_000
@@ -26,10 +28,11 @@ async function fetchFeed(feed: PoolFeed): Promise<RssArticle[] | null> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
+    // Reddit 429s generic User-Agents and documents this exact format.
     const userAgent =
       feed.kind === 'reddit'
-        ? 'web:com.podme.app:v1.0 (by /u/podme-bot)'
-        : 'PodMe/1.0 RSS Reader'
+        ? 'web:com.puckpuck.app:v1.0 (by /u/puckpuck-bot)'
+        : 'PuckPuck/1.0 (+https://puckpuck.ai) RSS Reader'
 
     const response = await fetch(feed.url, {
       signal: controller.signal,
@@ -117,7 +120,9 @@ export async function fetchContentForCustomTopic(
     }
   }
 
-  // Dedupe by normalized URL
+  // Drop anything too old for today's briefing, then dedupe by normalized URL
+  allArticles = filterRecent(allArticles)
+
   const seen = new Set<string>()
   allArticles = allArticles.filter((a) => {
     const key = a.url.toLowerCase().replace(/\/+$/, '')
@@ -159,6 +164,34 @@ export function normalizeSubredditToRss(input: string): string | null {
     const parts = u.pathname.split('/').filter(Boolean)
     if (parts[0] !== 'r' || !parts[1]) return null
     return `https://www.reddit.com/r/${parts[1]}/.rss`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Build a Substack RSS URL from a publication URL or handle.
+ *
+ * Substack serves RSS at `<publication>/feed` on both *.substack.com and
+ * custom domains (slowboring.com, popular.info). Discovery often returns the
+ * homepage rather than the feed, so append /feed when it's missing.
+ */
+export function normalizeSubstackToRss(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  // Bare handle: "astralcodexten" or "@astralcodexten"
+  if (/^@?[a-zA-Z0-9-]+$/.test(trimmed)) {
+    return `https://${trimmed.replace(/^@/, '')}.substack.com/feed`
+  }
+
+  try {
+    const u = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
+    // Already a feed path — leave it alone.
+    if (/\/(feed|rss)\/?$/.test(u.pathname)) {
+      return `${u.origin}${u.pathname.replace(/\/$/, '')}`
+    }
+    return `${u.origin}/feed`
   } catch {
     return null
   }
