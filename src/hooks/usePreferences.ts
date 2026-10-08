@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import type { UserPreferences } from '../lib/types'
+import type { UserPreferences, PreferencesUpdate } from '../lib/types'
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   user_id: '',
   delivery_time: '07:00',
   tone: 'conversational',
   episode_length: 'medium',
+  onboarded_at: null,
   updated_at: '',
 }
 
@@ -40,7 +41,7 @@ export function usePreferences(session: Session | null) {
   }, [fetchPreferences])
 
   const updatePreferences = useCallback(
-    async (updates: Partial<UserPreferences>) => {
+    async (updates: PreferencesUpdate) => {
       if (!session) return
       const updated = { ...preferences, ...updates }
       setPreferences(updated)

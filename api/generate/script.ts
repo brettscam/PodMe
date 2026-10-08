@@ -17,10 +17,15 @@ function buildScriptPrompt(tone: string, wordCount: number): string {
 Tone: ${tone}. Target: ~${wordCount} words.
 
 Write a natural dual-host podcast. Include:
-- Cold open (quick tease of top stories)
+- Cold open: ALEX opens with exactly "Welcome to your PuckPuck!" as the
+  first words of the episode, then teases the top stories.
 - Topic segments with genuine back-and-forth
 - Natural transitions between topics
 - A wrap-up
+
+Only cover the topics present in the material you were given. Some days a
+topic has no news and is absent — do not mention it, apologise for it, or
+invent filler to cover it.
 
 Format every line as: ALEX: [text] or JAMIE: [text]
 No stage directions. No [laughs] or [pauses]. Just dialogue.`

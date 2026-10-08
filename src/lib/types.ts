@@ -15,8 +15,18 @@ export interface UserPreferences {
   delivery_time: string
   tone: Tone
   episode_length: EpisodeLength
+  /** Null until the user finishes the welcome flow. */
+  onboarded_at: string | null
   updated_at: string
 }
+
+/**
+ * What callers may send to PUT /api/preferences.
+ *
+ * `onboarded` is write-only: the client sends a boolean and the server
+ * stamps `onboarded_at`, so nobody has to supply a clock.
+ */
+export type PreferencesUpdate = Partial<UserPreferences> & { onboarded?: boolean }
 
 export interface UserTopic {
   id: string

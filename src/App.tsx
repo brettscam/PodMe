@@ -9,6 +9,7 @@ import { useTier } from './hooks/useTier'
 import { useCustomTopics } from './hooks/useCustomTopics'
 import { useBilling } from './hooks/useBilling'
 import LoginScreen from './components/LoginScreen'
+import Onboarding from './components/Onboarding'
 import BottomNav from './components/BottomNav'
 import TodayView from './components/TodayView'
 import LibraryView from './components/LibraryView'
@@ -30,6 +31,7 @@ export default function App() {
   const {
     preferences,
     loading: preferencesLoading,
+    error: preferencesError,
     updatePreferences,
   } = usePreferences(session)
 
@@ -110,6 +112,31 @@ export default function App() {
   // Not authenticated
   if (!user || !session) {
     return <LoginScreen onSignInWithGoogle={signInWithGoogle} />
+  }
+
+  // First run. Requires a clean load of both preferences and topics: the
+  // defaults carry onboarded_at = null, so showing the wizard on a failed
+  // fetch would replay it for established users.
+  const needsOnboarding =
+    !preferencesLoading &&
+    !topicsLoading &&
+    !preferencesError &&
+    preferences.onboarded_at === null
+
+  if (needsOnboarding) {
+    return (
+      <Onboarding
+        topics={topics}
+        userTopics={userTopics}
+        preferences={preferences}
+        customTopics={customTopicsState}
+        tier={tierState}
+        onToggleTopic={toggleTopic}
+        onSaveTopics={saveUserTopics}
+        onUpdatePreferences={updatePreferences}
+        onComplete={() => updatePreferences({ onboarded: true })}
+      />
+    )
   }
 
   return (

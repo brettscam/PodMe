@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getServiceClient, getUserId } from '../lib/supabase'
 import { fetchRssForTopic, type FetchedContent } from '../lib/rss-fetcher'
 import { fetchContentForCustomTopic } from '../lib/custom-topic-fetcher'
-import { articleAgeDays, MAX_ARTICLE_AGE_DAYS } from '../lib/rss-parser'
+import { MAX_ARTICLE_AGE_DAYS } from '../lib/rss-parser'
+import { buildEditorDigest } from '../lib/editor-digest'
 import { callClaude } from '../lib/claude'
 import { canCreateEpisode } from '../lib/tier'
 import { triggerStage } from '../lib/pipeline'
@@ -162,31 +163,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       })
       .eq('id', episodeId)
 
-    // 5. Build article digest for the editor agent.
-    // Topics that returned nothing are left out entirely rather than shown as
-    // empty — an empty heading reads as a gap to fill.
-    const now = Date.now()
-    const topicsWithContent = topicResults.filter((r) => r.content.articles.length > 0)
+    // 5. Build the editor digest. Topics with nothing fresh are omitted
+    // entirely — see api/lib/editor-digest.ts and its tests.
+    const digest = buildEditorDigest(
+      topicResults.map(({ topicId, content }) => ({
+        topicId,
+        articles: content.articles,
+        feedsQueried: content.feeds_queried,
+        feedsSucceeded: content.feeds_succeeded,
+      })),
+    )
+    const articleDigest = digest.text
 
-    const articleDigest = topicsWithContent.map(({ topicId, content }) => {
-      const articleList = content.articles.slice(0, 30).map((a, i) => {
-        const age = articleAgeDays(a, now)
-        const ageLabel =
-          age === null
-            ? 'age unknown'
-            : age === 0
-              ? 'today'
-              : age === 1
-                ? '1 day old'
-                : `${age} days old`
-        return `  ${i + 1}. [${a.source_name}] "${a.title}" (${ageLabel})\n     ${a.description}\n     URL: ${a.url}`
-      }).join('\n')
-
-      return `## Topic: ${topicId}\n(${content.articles.length} articles within the freshness window, ${content.feeds_succeeded}/${content.feeds_queried} feeds reachable)\n\n${articleList}`
-    }).join('\n\n---\n\n')
+    if (digest.omittedTopicIds.length > 0) {
+      console.log(
+        `Episode ${episodeId}: omitted ${digest.omittedTopicIds.join(', ')} — no fresh content`,
+      )
+    }
 
     // Nothing survived the freshness filter anywhere — no point calling Claude.
-    if (topicsWithContent.length === 0) {
+    if (digest.includedTopicIds.length === 0) {
       await supabase
         .from('episodes')
         .update({
@@ -270,7 +266,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         episode_id: episodeId,
         status: 'failed',
         reason: 'no_stories_selected',
-        topics_with_content: topicsWithContent.length,
+        topics_with_content: digest.includedTopicIds.length,
       })
     }
 
