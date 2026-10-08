@@ -15,13 +15,24 @@ export interface UserPreferences {
   delivery_time: string
   tone: Tone
   episode_length: EpisodeLength
+  /** Null until the user finishes the welcome flow. */
+  onboarded_at: string | null
   updated_at: string
 }
+
+/**
+ * What callers may send to PUT /api/preferences.
+ *
+ * `onboarded` is write-only: the client sends a boolean and the server
+ * stamps `onboarded_at`, so nobody has to supply a clock.
+ */
+export type PreferencesUpdate = Partial<UserPreferences> & { onboarded?: boolean }
 
 export interface UserTopic {
   id: string
   user_id: string
   topic_id: string
+  custom_topic_id?: string | null
   enabled: boolean
   custom_tags: string[]
   sort_order: number
@@ -64,3 +75,53 @@ export interface UserProfile {
 }
 
 export type ViewName = 'today' | 'library' | 'settings'
+
+export type FeedKind = 'rss' | 'reddit' | 'atom'
+
+export interface FeedPoolEntry {
+  id: string
+  url: string
+  name: string
+  kind: FeedKind
+  tier: 1 | 2 | 3
+  categories?: string[]
+  tags?: string[]
+  description?: string | null
+  match_reason?: 'category' | 'tag' | 'both'
+}
+
+export interface DiscoveredFeed {
+  url: string
+  name: string
+  kind: FeedKind
+  tier: 1 | 2 | 3
+  tags: string[]
+  rationale: string
+}
+
+export interface CustomTopic {
+  id: string
+  label: string
+  parent_category: string
+  search_terms: string[]
+  created_at: string
+  feeds: FeedPoolEntry[]
+}
+
+export type Tier = 'free' | 'pro' | 'unlimited'
+
+export interface TierInfo {
+  tier: Tier
+  limits: {
+    customTopics: number | null
+    episodesPerWeek: number | null
+    voicePacks: string[] | null
+    maxEpisodeLength: EpisodeLength
+  }
+  usage: {
+    episodesThisWeek: number
+    customTopics: number
+  }
+  /** False when Stripe keys/prices aren't set, so the UI can hide checkout. */
+  billingEnabled: boolean
+}

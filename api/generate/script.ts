@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getServiceClient, getUserId } from '../lib/supabase'
+import { getServiceClient, resolveCaller } from '../lib/supabase'
 import { callClaude } from '../lib/claude'
+import { triggerStage } from '../lib/pipeline'
 
 const WORD_TARGETS: Record<string, number> = {
   short: 1500,
@@ -16,10 +17,15 @@ function buildScriptPrompt(tone: string, wordCount: number): string {
 Tone: ${tone}. Target: ~${wordCount} words.
 
 Write a natural dual-host podcast. Include:
-- Cold open (quick tease of top stories)
+- Cold open: ALEX opens with exactly "Welcome to your PuckPuck!" as the
+  first words of the episode, then teases the top stories.
 - Topic segments with genuine back-and-forth
 - Natural transitions between topics
 - A wrap-up
+
+Only cover the topics present in the material you were given. Some days a
+topic has no news and is absent — do not mention it, apologise for it, or
+invent filler to cover it.
 
 Format every line as: ALEX: [text] or JAMIE: [text]
 No stage directions. No [laughs] or [pauses]. Just dialogue.`
@@ -30,8 +36,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const userId = await getUserId(req)
-  if (!userId) {
+  const caller = await resolveCaller(req)
+  if (caller.kind === 'none') {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
@@ -54,9 +60,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Episode not found' })
     }
 
-    if (episode.user_id !== userId) {
+    // An internal caller (stage chain or sweeper) acts for the episode's owner.
+    if (caller.kind === 'user' && episode.user_id !== caller.userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
+    const userId: string = episode.user_id
 
     if (!episode.metadata || !episode.metadata.stories) {
       return res.status(400).json({ error: 'Episode has no curated stories. Run /api/generate first.' })
@@ -135,9 +143,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .update({
         transcript,
         status: 'scripting',
-        stage_progress: 'Script complete. Ready for audio generation.',
+        stage_progress: 'Script complete. Generating audio…',
       })
       .eq('id', episode_id)
+
+    // 7. Hand off to the audio stage server-side.
+    triggerStage('audio', episode_id)
 
     return res.status(200).json({
       episode_id,

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getServiceClient, getUserId } from '../lib/supabase'
+import { getServiceClient, resolveCaller } from '../lib/supabase'
 
 interface SpeakerTurn {
   speaker: 'ALEX' | 'JAMIE'
@@ -9,6 +9,14 @@ interface SpeakerTurn {
 const VOICE_MAP: Record<string, string> = {
   ALEX: 'en_US-lessac-medium',
   JAMIE: 'en_US-amy-medium',
+}
+
+interface ReplicatePrediction {
+  id?: string
+  urls?: { get?: string }
+  status?: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled'
+  output?: string | string[] | null
+  error?: unknown
 }
 
 /** Parse transcript into speaker turns. */
@@ -78,8 +86,9 @@ async function generateTTS(text: string, voiceId: string): Promise<Buffer | null
       return null
     }
 
-    const prediction = await createResponse.json()
-    const predictionUrl = prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`
+    const prediction = (await createResponse.json()) as ReplicatePrediction
+    const predictionUrl =
+      prediction.urls?.get || `https://api.replicate.com/v1/predictions/${prediction.id}`
 
     // Poll for completion (max 60 seconds)
     const maxWait = 60_000
@@ -96,7 +105,7 @@ async function generateTTS(text: string, voiceId: string): Promise<Buffer | null
         return null
       }
 
-      const status = await statusResponse.json()
+      const status = (await statusResponse.json()) as ReplicatePrediction
 
       if (status.status === 'succeeded') {
         // Get audio from output URL
@@ -132,8 +141,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const userId = await getUserId(req)
-  if (!userId) {
+  const caller = await resolveCaller(req)
+  if (caller.kind === 'none') {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
@@ -156,9 +165,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Episode not found' })
     }
 
-    if (episode.user_id !== userId) {
+    // An internal caller (stage chain or sweeper) acts for the episode's owner.
+    if (caller.kind === 'user' && episode.user_id !== caller.userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
+    const userId: string = episode.user_id
 
     if (!episode.transcript) {
       return res.status(400).json({ error: 'Episode has no transcript. Run /api/generate/script first.' })

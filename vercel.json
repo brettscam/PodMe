@@ -32,8 +32,45 @@
     },
     "api/episodes/[id].ts": {
       "maxDuration": 30
+    },
+    "api/me.ts": {
+      "maxDuration": 30
+    },
+    "api/custom-topics/index.ts": {
+      "maxDuration": 30
+    },
+    "api/custom-topics/[id].ts": {
+      "maxDuration": 30
+    },
+    "api/custom-topics/analyze.ts": {
+      "maxDuration": 60
+    },
+    "api/billing/checkout.ts": {
+      "maxDuration": 30
+    },
+    "api/billing/portal.ts": {
+      "maxDuration": 30
+    },
+    "api/billing/webhook.ts": {
+      "maxDuration": 30
+    },
+    "api/cron/sweep-episodes.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/validate-feeds.ts": {
+      "maxDuration": 120
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/sweep-episodes",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/validate-feeds",
+      "schedule": "17 */6 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }

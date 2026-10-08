@@ -48,16 +48,16 @@ export async function callClaude(
     throw new Error(`Claude API error ${response.status}: ${errBody}`)
   }
 
-  const data = await response.json()
+  const data = (await response.json()) as {
+    content?: Array<{ type: string; text?: string }>
+  }
 
   // Extract text from content blocks (may contain tool_use and text blocks)
-  const textBlocks = (data.content || []).filter(
-    (block: { type: string }) => block.type === 'text',
-  )
+  const textBlocks = (data.content ?? []).filter((block) => block.type === 'text')
 
   if (textBlocks.length === 0) {
     throw new Error('Claude returned no text content')
   }
 
-  return textBlocks.map((b: { text: string }) => b.text).join('\n')
+  return textBlocks.map((b) => b.text ?? '').join('\n')
 }

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { parseRssFeed, type RssArticle } from './rss-parser'
+import { parseRssFeed, filterRecent, type RssArticle } from './rss-parser'
 
 export interface FetchedContent {
   articles: RssArticle[]
@@ -267,7 +267,9 @@ export async function fetchRssForTopic(
     }
   }
 
-  // 4. Deduplicate by URL
+  // 4. Drop anything too old to belong in today's briefing, then dedupe by URL
+  allArticles = filterRecent(allArticles)
+
   const seen = new Set<string>()
   allArticles = allArticles.filter(article => {
     const normalizedUrl = article.url.toLowerCase().replace(/\/+$/, '')

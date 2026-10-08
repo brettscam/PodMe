@@ -1,5 +1,6 @@
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, Smartphone } from 'lucide-react'
 import type { EpisodeStatus } from '../lib/types'
+import { isIOS } from '../lib/platform'
 
 interface GenerationProgressProps {
   status: EpisodeStatus | null
@@ -79,6 +80,17 @@ export default function GenerationProgress({
 
       {stageProgress && (
         <p className="text-xs text-gray-400 mt-4">{stageProgress}</p>
+      )}
+
+      {isIOS() && (
+        <div className="mt-4 pt-4 border-t border-gray-800 flex items-start gap-2.5">
+          <Smartphone size={14} className="text-gray-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Safe to lock your phone or switch apps — this finishes on our
+            servers. iOS pauses background tabs, so progress here may look
+            frozen until you come back.
+          </p>
+        </div>
       )}
     </div>
   )

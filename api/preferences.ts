@@ -28,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             delivery_time: '07:00',
             tone: 'conversational',
             episode_length: 'medium',
+            onboarded_at: null,
             updated_at: new Date().toISOString(),
           })
         }
@@ -38,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'PUT') {
-      const { tone, episode_length, delivery_time } = req.body || {}
+      const { tone, episode_length, delivery_time, onboarded } = req.body || {}
 
       // Validate
       if (tone !== undefined && !VALID_TONES.includes(tone)) {
@@ -55,6 +56,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (tone !== undefined) updates.tone = tone
       if (episode_length !== undefined) updates.episode_length = episode_length
       if (delivery_time !== undefined) updates.delivery_time = delivery_time
+      // Boolean in, timestamp out — callers shouldn't have to supply a clock.
+      if (onboarded === true) updates.onboarded_at = new Date().toISOString()
 
       const { data, error } = await supabase
         .from('user_preferences')
